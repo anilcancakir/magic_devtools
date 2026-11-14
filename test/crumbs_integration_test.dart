@@ -2,12 +2,12 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart' hide EventDispatcher;
-import 'package:fluttersdk_telescope/telescope.dart';
+import 'package:crumbs/crumbs.dart';
 import 'package:magic/magic.dart';
 import 'package:magic_devtools/magic_devtools.dart';
-import 'package:magic_devtools/telescope.dart';
+import 'package:magic_devtools/crumbs.dart';
+import 'package:material_ui/material_ui.dart';
 
 // ---------------------------------------------------------------------------
 // Test-only stubs
@@ -99,8 +99,8 @@ MagicRequest _req(String url, {String method = 'GET', int? id}) =>
 MagicResponse _ok({int statusCode = 200, int? id}) =>
     MagicResponse(data: <String, dynamic>{}, statusCode: statusCode, id: id);
 
-/// Stands in for dusk's `PerfInteraction`, whose constructor is private to
-/// dusk: a host test has no way to open a real one outside a perf session
+/// Stands in for tapir's `PerfInteraction`, whose constructor is private to
+/// tapir: a host test has no way to open a real one outside a perf session
 /// driven over the VM Service. Recognised through
 /// [MagicPerfIntegration.zoneInteraction], the one seam that decides what a
 /// zone value is; the zone key and the zone, frame, window order under test
@@ -126,12 +126,12 @@ void _useFakeInteractions({_FakeInteraction? active}) {
       active != null && active.open ? active.id : null;
 }
 
-/// Runs [body] the way dusk runs a gesture: with [interaction] as the zone
-/// value under dusk's public `#fluttersdk_interaction` key.
+/// Runs [body] the way tapir runs a gesture: with [interaction] as the zone
+/// value under tapir's public `#tapir_interaction` key.
 R _inInteraction<R>(_FakeInteraction interaction, R Function() body) =>
     runZoned(
       body,
-      zoneValues: <Object?, Object?>{#fluttersdk_interaction: interaction},
+      zoneValues: <Object?, Object?>{#tapir_interaction: interaction},
     );
 
 class _NextPage extends StatefulWidget {
@@ -168,14 +168,14 @@ void main() {
     setUp(() {
       MagicApp.reset();
       Magic.flush();
-      TelescopeStore.resetForTesting();
+      CrumbsStore.resetForTesting();
       driver = _CapturingNetworkDriver();
       Magic.bind('network', () => driver);
       adapter = MagicHttpFacadeAdapter();
     });
 
     tearDown(() {
-      TelescopeStore.resetForTesting();
+      CrumbsStore.resetForTesting();
       MagicApp.reset();
       Magic.flush();
     });
@@ -223,7 +223,7 @@ void main() {
       // that was a real request with an id, its own answer then found nothing
       // to pair with and was dropped, and the id-less answer was recorded
       // against the wrong URL.
-      TelescopeStore.resetForTesting();
+      CrumbsStore.resetForTesting();
       adapter.install();
       final interceptor = driver.interceptors.first;
 
@@ -233,7 +233,7 @@ void main() {
       interceptor.onResponse(_ok(id: 7));
 
       final Map<String, HttpRequestRecord> byUrl = <String, HttpRequestRecord>{
-        for (final HttpRequestRecord r in TelescopeStore.recentHttp()) r.url: r,
+        for (final HttpRequestRecord r in CrumbsStore.recentHttp()) r.url: r,
       };
       expect(byUrl['/hand-built']?.statusCode, 201);
       expect(byUrl['/hand-built']?.attributedHeuristically, isTrue);
@@ -258,17 +258,17 @@ void main() {
       },
     );
 
-    test('flows through TelescopeStore.pendingHttpCount when registered', () {
-      TelescopePlugin.registerHttpAdapter(adapter);
+    test('flows through CrumbsStore.pendingHttpCount when registered', () {
+      CrumbsPlugin.registerHttpAdapter(adapter);
       final interceptor = driver.interceptors.first;
 
       interceptor.onRequest(_req('/sync'));
       interceptor.onRequest(_req('/queue'));
 
-      expect(TelescopeStore.pendingHttpCount, equals(2));
+      expect(CrumbsStore.pendingHttpCount, equals(2));
 
       interceptor.onResponse(_ok());
-      expect(TelescopeStore.pendingHttpCount, equals(1));
+      expect(CrumbsStore.pendingHttpCount, equals(1));
     });
   });
 
@@ -284,7 +284,7 @@ void main() {
       HttpOverrides.global = null;
       MagicApp.reset();
       Magic.flush();
-      TelescopeStore.resetForTesting();
+      CrumbsStore.resetForTesting();
       MagicPerfIntegration.resetForTesting();
 
       server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
@@ -302,7 +302,7 @@ void main() {
     tearDown(() async {
       await server.close(force: true);
       HttpOverrides.global = bindingOverrides;
-      TelescopeStore.resetForTesting();
+      CrumbsStore.resetForTesting();
       MagicPerfIntegration.resetForTesting();
       MagicApp.reset();
       Magic.flush();
@@ -324,7 +324,7 @@ void main() {
       await Future.wait(<Future<MagicResponse>>[slow, fast]);
 
       final Map<String, HttpRequestRecord> byUrl = <String, HttpRequestRecord>{
-        for (final HttpRequestRecord r in TelescopeStore.recentHttp())
+        for (final HttpRequestRecord r in CrumbsStore.recentHttp())
           Uri.parse(r.url).path: r,
       };
       expect(byUrl.keys, unorderedEquals(<String>['/slow', '/fast']));
@@ -351,7 +351,7 @@ void main() {
 
       await _inInteraction(tap, () => driver.get('/fast'));
 
-      final HttpRequestRecord record = TelescopeStore.recentHttp().single;
+      final HttpRequestRecord record = CrumbsStore.recentHttp().single;
       expect(record.interactionId, 'i3');
       expect(record.linkedBy, 'zone');
     });
@@ -363,13 +363,13 @@ void main() {
       Magic.flush();
       MagicRouter.reset();
       EventDispatcher.instance.clear();
-      TelescopeStore.resetForTesting();
+      CrumbsStore.resetForTesting();
       MagicPerfIntegration.resetForTesting();
     });
 
     tearDown(() {
       EventDispatcher.instance.clear();
-      TelescopeStore.resetForTesting();
+      CrumbsStore.resetForTesting();
       MagicPerfIntegration.resetForTesting();
       MagicRouter.reset();
     });
@@ -387,7 +387,7 @@ void main() {
         ),
       );
 
-      final QueryRecord record = TelescopeStore.recentQueries().single;
+      final QueryRecord record = CrumbsStore.recentQueries().single;
       expect(record.interactionId, 'i7');
       expect(record.linkedBy, 'zone');
     });
@@ -408,10 +408,10 @@ void main() {
       active.open = false;
       await EventDispatcher.instance.dispatch(AuthLogout(null));
 
-      final MagicCacheRecord cache = TelescopeStore.recentCaches().single;
+      final CacheRecord cache = CrumbsStore.recentCaches().single;
       expect(cache.interactionId, 'i2');
       expect(cache.linkedBy, 'frame');
-      final EventRecord event = TelescopeStore.recentEvents().single;
+      final EventRecord event = CrumbsStore.recentEvents().single;
       expect(event.interactionId, isNull);
       expect(event.linkedBy, 'window');
     });
@@ -448,7 +448,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Dispatched the way dusk dispatches a gesture: inside the zone. The
+      // Dispatched the way tapir dispatches a gesture: inside the zone. The
       // pumps that build the next page run in the test's own zone, as frames
       // run in the binding's frame zone in an app.
       await _inInteraction(tap, () => tester.tap(find.text('go')));
@@ -456,7 +456,7 @@ void main() {
 
       expect(find.text('next'), findsOneWidget);
       final Map<String, QueryRecord> bySql = <String, QueryRecord>{
-        for (final QueryRecord r in TelescopeStore.recentQueries()) r.sql: r,
+        for (final QueryRecord r in CrumbsStore.recentQueries()) r.sql: r,
       };
       expect(bySql['select * from here']!.interactionId, 'i4');
       expect(bySql['select * from here']!.linkedBy, 'zone');
@@ -483,8 +483,8 @@ void main() {
       // AuthManager caches its guards process-wide; a token stored by one
       // test would otherwise ride along on the next.
       Auth.manager.forgetGuards();
-      TelescopeStore.resetForTesting();
-      MagicTelescopeIntegration.resetForTesting();
+      CrumbsStore.resetForTesting();
+      MagicCrumbsIntegration.resetForTesting();
       MagicPerfIntegration.resetForTesting();
       received = null;
 
@@ -505,22 +505,22 @@ void main() {
       Config.set('auth', <String, dynamic>{});
       Vault.unfake();
       Log.unfake();
-      TelescopeStore.resetForTesting();
-      MagicTelescopeIntegration.resetForTesting();
+      CrumbsStore.resetForTesting();
+      MagicCrumbsIntegration.resetForTesting();
       MagicPerfIntegration.resetForTesting();
       MagicApp.reset();
       Magic.flush();
     });
 
     /// Signs in with `sanctum-token` and posts a login body through a driver
-    /// that carries magic's own AuthInterceptor ahead of telescope's, the
+    /// that carries magic's own AuthInterceptor ahead of crumbs', the
     /// order an app boots them in.
     Future<HttpRequestRecord> login() async {
       final DioNetworkDriver driver = DioNetworkDriver(
         baseUrl: 'http://127.0.0.1:${server.port}',
       )..addInterceptor(AuthInterceptor());
       Magic.singleton('network', () => driver);
-      MagicTelescopeIntegration.install();
+      MagicCrumbsIntegration.install();
       await (Auth.guard() as BaseGuard).storeToken('sanctum-token');
 
       await driver.post(
@@ -528,7 +528,7 @@ void main() {
         data: <String, dynamic>{'email': 'a@b.test', 'password': 'hunter2'},
       );
 
-      return TelescopeStore.recentHttp().single;
+      return CrumbsStore.recentHttp().single;
     }
 
     String? header(HttpRequestRecord record, String name) => record
@@ -562,7 +562,7 @@ void main() {
 
       expect(header(record, 'X-Auth'), equals('********'));
       expect(jsonEncode(record.toJson()), isNot(contains('sanctum-token')));
-      expect(TelescopeRedaction.hiddenRequestHeaders, contains('x-auth'));
+      expect(CrumbsRedaction.hiddenRequestHeaders, contains('x-auth'));
     });
 
     test('an error answer is masked with the response list, and the request '
@@ -591,7 +591,7 @@ void main() {
       );
 
       expect(body['password'], equals('hunter2'));
-      final HttpRequestRecord record = TelescopeStore.recentHttp().single;
+      final HttpRequestRecord record = CrumbsStore.recentHttp().single;
       expect(record.requestBody, isNot(contains('hunter2')));
       expect(record.responseBody, isNot(contains('t0k')));
       expect(record.responseBody, contains('********'));
@@ -622,7 +622,7 @@ void main() {
         ),
       );
 
-      final HttpRequestRecord record = TelescopeStore.recentHttp().single;
+      final HttpRequestRecord record = CrumbsStore.recentHttp().single;
       expect(record.requestBody, contains('[truncated'));
       expect(record.requestBody, isNot(contains('hunter2')));
       expect(record.responseBody, isNot(contains('t0k')));
@@ -630,12 +630,12 @@ void main() {
 
     test('install() hides the auth header again after the store was reset', () {
       Config.set('auth.token.header', 'X-Auth');
-      MagicTelescopeIntegration.install();
+      MagicCrumbsIntegration.install();
 
-      TelescopeStore.resetForTesting();
-      MagicTelescopeIntegration.install();
+      CrumbsStore.resetForTesting();
+      MagicCrumbsIntegration.install();
 
-      expect(TelescopeRedaction.hiddenRequestHeaders, contains('x-auth'));
+      expect(CrumbsRedaction.hiddenRequestHeaders, contains('x-auth'));
     });
   });
 }

@@ -1,47 +1,51 @@
 import 'package:flutter/foundation.dart';
-import 'package:fluttersdk_dusk/dusk.dart'
-    show pendingHttpCountReader, recentLogsReader, recentExceptionsReader;
-import 'package:fluttersdk_telescope/telescope.dart';
+import 'package:tapir/tapir.dart'
+    show
+        ConsoleRequest,
+        ExceptionsRequest,
+        pendingHttpCountReader,
+        recentLogsReader,
+        recentExceptionsReader;
+import 'package:crumbs/crumbs.dart';
 import 'package:magic/magic.dart';
 
 import 'perf_integration.dart';
 
-/// Glues magic's Http / Model / Cache facades into the fluttersdk_telescope
+/// Glues magic's Http / Model / Cache facades into the crumbs
 /// store.
 ///
 /// Host integration (debug-only):
 /// ```dart
 /// if (!kReleaseMode) {
-///   TelescopePlugin.install();
-///   MagicTelescopeIntegration.install();
+///   CrumbsPlugin.install();
+///   MagicCrumbsIntegration.install();
 /// }
 /// ```
 ///
-/// Registers five units with [TelescopePlugin]:
+/// Registers six units with [CrumbsPlugin]:
 /// 1. [MagicHttpFacadeAdapter] ; wraps Magic's `network` driver with a
-///    [MagicNetworkInterceptor] that feeds [TelescopeStore.recordHttp]
+///    [MagicNetworkInterceptor] that feeds [CrumbsStore.recordHttp]
 ///    (oracle's reuse-pattern decision kept inside magic).
 /// 2. [MagicModelWatcher] ; subscribes to `ModelCreated`, `ModelSaved`,
-///    `ModelDeleted` and feeds [TelescopeStore.recordMagicModel].
-/// 3. [MagicCacheWatcher] ; placeholder; magic's Cache facade does not
-///    currently emit lifecycle events. V1.x will land cache events
-///    upstream in magic's Cache layer; this watcher's [install] is a
-///    no-op for now (kept registered so the V1.x event wiring is a
-///    one-file change).
+///    `ModelDeleted` and feeds [CrumbsStore.recordModel].
+/// 3. [MagicCacheWatcher] ; subscribes to `CacheHit`, `CacheMiss`,
+///    `CachePut`, `CacheForget` and `CacheFlush` and feeds
+///    [CrumbsStore.recordCache].
 /// 4. [MagicEventWatcher] ; subscribes to the curated set of magic auth /
-///    db / gate-definition events (alpha-2 scope) and feeds
-///    [TelescopeStore.recordEvent] with an empty payload. Per-event field
-///    extraction is deferred to a follow-up alpha.
+///    db / gate-definition events and feeds [CrumbsStore.recordEvent] with
+///    an empty payload: the record carries the event type only.
 /// 5. [MagicGateWatcher] ; subscribes to `GateAccessChecked` and feeds
-///    [TelescopeStore.recordGate] with the canonical gate result shape
+///    [CrumbsStore.recordGate] with the canonical gate result shape
 ///    (single dynamic `arguments` wrapped into `List<Object?>`, user id
 ///    stringified).
+/// 6. [MagicQueryWatcher] ; subscribes to `QueryExecuted` and feeds
+///    [CrumbsStore.recordQuery].
 ///
-/// The five integration classes below are exposed for testing but are
+/// The integration classes below are exposed for testing but are
 /// NOT re-exported from `package:magic/magic.dart` ; only
-/// [MagicTelescopeIntegration.install] is the documented public entry.
-class MagicTelescopeIntegration {
-  MagicTelescopeIntegration._();
+/// [MagicCrumbsIntegration.install] is the documented public entry.
+class MagicCrumbsIntegration {
+  MagicCrumbsIntegration._();
 
   /// Idempotent install. Safe to call multiple times within the same
   /// isolate lifetime.
@@ -51,30 +55,30 @@ class MagicTelescopeIntegration {
     // a renamed header would reach the agent-facing buffer in the clear.
     // Ahead of the guard because a store reset drops the addition while
     // this integration stays installed.
-    TelescopeRedaction.hideRequestHeaders(<String>[
+    CrumbsRedaction.hideRequestHeaders(<String>[
       Config.get<String>('auth.token.header', 'Authorization') ??
           'Authorization',
     ]);
     if (_installed) return;
     _installed = true;
-    TelescopePlugin.registerHttpAdapter(MagicHttpFacadeAdapter());
-    TelescopePlugin.registerWatcher(MagicModelWatcher());
-    TelescopePlugin.registerWatcher(MagicCacheWatcher());
-    TelescopePlugin.registerWatcher(MagicEventWatcher());
-    TelescopePlugin.registerWatcher(MagicGateWatcher());
-    TelescopePlugin.registerWatcher(MagicQueryWatcher());
+    CrumbsPlugin.registerHttpAdapter(MagicHttpFacadeAdapter());
+    CrumbsPlugin.registerWatcher(MagicModelWatcher());
+    CrumbsPlugin.registerWatcher(MagicCacheWatcher());
+    CrumbsPlugin.registerWatcher(MagicEventWatcher());
+    CrumbsPlugin.registerWatcher(MagicGateWatcher());
+    CrumbsPlugin.registerWatcher(MagicQueryWatcher());
 
-    // Bridge dusk's `wait_for_network_idle` poll loop to the telescope
-    // in-flight count. Dusk keeps a function-pointer indirection so it
-    // does not need a hard dep on telescope; we point that pointer at
+    // Bridge tapir's `wait_for_network_idle` poll loop to the crumbs
+    // in-flight count. Tapir keeps a function-pointer indirection so it
+    // does not need a hard dep on crumbs; we point that pointer at
     // the real source as part of the install side-effect.
-    pendingHttpCountReader = () => TelescopeStore.pendingHttpCount;
+    pendingHttpCountReader = () => CrumbsStore.pendingHttpCount;
 
-    // Bridge dusk's `console` + `exceptions` tools to telescope's recent
-    // ring-buffer accessors. Project telescope record shapes into the
-    // dusk handler envelope (logger/type/stackHead key remap).
-    recentLogsReader = ({int limit = 50, String? minLevel}) =>
-        TelescopeStore.recentLogs(limit: limit, minLevel: minLevel)
+    // Bridge tapir's `console` + `exceptions` tools to crumbs' recent
+    // ring-buffer accessors. Project crumbs record shapes into the
+    // tapir handler envelope (logger/type/stackHead key remap).
+    recentLogsReader = (ConsoleRequest request) =>
+        CrumbsStore.recentLogs(limit: request.limit, minLevel: request.minLevel)
             .map(
               (r) => <String, dynamic>{
                 'level': r.level,
@@ -85,8 +89,8 @@ class MagicTelescopeIntegration {
               },
             )
             .toList();
-    recentExceptionsReader = ({int limit = 20}) =>
-        TelescopeStore.recentExceptions(limit: limit)
+    recentExceptionsReader = (ExceptionsRequest request) =>
+        CrumbsStore.recentExceptions(limit: request.limit)
             .map(
               (r) => <String, dynamic>{
                 'type': r.exceptionType,
@@ -105,22 +109,22 @@ class MagicTelescopeIntegration {
 
   /// Test-only reset. Drops the idempotency guard AND restores the three
   /// cross-package function pointers (`pendingHttpCountReader`,
-  /// `recentLogsReader`, `recentExceptionsReader`) to their dusk-side
-  /// missing-telescope defaults so downstream tests that assert
+  /// `recentLogsReader`, `recentExceptionsReader`) to their tapir-side
+  /// missing-crumbs defaults so downstream tests that assert
   /// "graceful-empty" behavior do not see leaked bindings from a prior
   /// [install] call. The contract on each pointer is set-once-per-isolate
   /// during install + reset-on-resetForTesting.
   ///
-  /// Does NOT unregister the adapters/watchers ; TelescopePlugin keeps
+  /// Does NOT unregister the adapters/watchers ; CrumbsPlugin keeps
   /// them in its internal lists; tests should call
-  /// [TelescopeStore.resetForTesting] to clear the buffers and rely on
+  /// [CrumbsStore.resetForTesting] to clear the buffers and rely on
   /// per-test setUp to construct fresh integration instances.
   @visibleForTesting
   static void resetForTesting() {
     _installed = false;
     pendingHttpCountReader = () => 0;
-    recentLogsReader = ({int limit = 50, String? minLevel}) => const [];
-    recentExceptionsReader = ({int limit = 20}) => const [];
+    recentLogsReader = (ConsoleRequest request) => const [];
+    recentExceptionsReader = (ExceptionsRequest request) => const [];
   }
 
   static bool _installed = false;
@@ -130,21 +134,21 @@ class MagicTelescopeIntegration {
 // HTTP adapter ; wraps Magic's network driver via MagicNetworkInterceptor.
 // ---------------------------------------------------------------------------
 
-/// [TelescopeHttpAdapter] that captures every request flowing through
-/// Magic's `network` driver and feeds [TelescopeStore.recordHttp].
+/// [CrumbsHttpAdapter] that captures every request flowing through
+/// Magic's `network` driver and feeds [CrumbsStore.recordHttp].
 ///
-/// Implementation: registers a [_TelescopeNetworkInterceptor] on the
+/// Implementation: registers a [_CrumbsNetworkInterceptor] on the
 /// driver resolved via `Magic.make<NetworkDriver>('network')`. The
 /// interceptor sees every request/response/error and translates them to
 /// [HttpRequestRecord] entries.
-class MagicHttpFacadeAdapter implements TelescopeHttpAdapter {
+class MagicHttpFacadeAdapter implements CrumbsHttpAdapter {
   @override
   String get name => 'magic_http_facade';
 
   /// The interceptor instance bound at [install]. Held for [uninstall]
   /// reference symmetry; the actual `NetworkDriver` contract has no
   /// `removeInterceptor` hook (V1 limitation).
-  _TelescopeNetworkInterceptor? _interceptor;
+  _CrumbsNetworkInterceptor? _interceptor;
 
   @override
   void install() {
@@ -154,8 +158,7 @@ class MagicHttpFacadeAdapter implements TelescopeHttpAdapter {
       return;
     }
     final NetworkDriver driver = Magic.make<NetworkDriver>('network');
-    final _TelescopeNetworkInterceptor interceptor =
-        _TelescopeNetworkInterceptor();
+    final _CrumbsNetworkInterceptor interceptor = _CrumbsNetworkInterceptor();
     driver.addInterceptor(interceptor);
     _interceptor = interceptor;
   }
@@ -172,7 +175,7 @@ class MagicHttpFacadeAdapter implements TelescopeHttpAdapter {
   /// surfaced via the interceptor's `_pending` list.
   ///
   /// Pre-install (or post-uninstall) `_interceptor` is null and the getter
-  /// short-circuits to 0 ; the null-guard keeps `TelescopeStore.pendingHttpCount`
+  /// short-circuits to 0 ; the null-guard keeps `CrumbsStore.pendingHttpCount`
   /// safe to call from a poll loop before [install] runs.
   @override
   int get pendingCount => _interceptor?._pending.length ?? 0;
@@ -188,7 +191,7 @@ class MagicHttpFacadeAdapter implements TelescopeHttpAdapter {
 /// interceptors, so its traffic never reaches this one) falls back to the
 /// oldest id-less request in flight, and that record says so with
 /// `attributedHeuristically: true`.
-class _TelescopeNetworkInterceptor extends MagicNetworkInterceptor {
+class _CrumbsNetworkInterceptor extends MagicNetworkInterceptor {
   /// Set to true by [MagicHttpFacadeAdapter.uninstall] ; drops every
   /// subsequent record.
   bool _disarmed = false;
@@ -262,7 +265,7 @@ class _TelescopeNetworkInterceptor extends MagicNetworkInterceptor {
     final _InFlight pending = _pending.removeAt(index);
 
     final int endUs = FlutterTimeline.now;
-    TelescopeStore.recordHttp(
+    CrumbsStore.recordHttp(
       HttpRequestRecord(
         url: pending.url,
         method: pending.method,
@@ -284,7 +287,7 @@ class _TelescopeNetworkInterceptor extends MagicNetworkInterceptor {
   }
 }
 
-/// Per-request capture state, held by [_TelescopeNetworkInterceptor]
+/// Per-request capture state, held by [_CrumbsNetworkInterceptor]
 /// between `onRequest` and `onResponse`/`onError`.
 class _InFlight {
   _InFlight({
@@ -329,15 +332,15 @@ Map<String, String>? _stringHeaders(Map<String, dynamic> raw) {
 /// a masked copy: the driver sends on the very object the interceptor saw,
 /// so masking in place would send the mask to the server.
 Object? _redactRequestBody(Object? data) =>
-    _redactBody(data, TelescopeRedaction.hiddenRequestParameters);
+    _redactBody(data, CrumbsRedaction.hiddenRequestParameters);
 
 /// [_redactRequestBody] against the response list.
 Object? _redactResponseBody(Object? data) =>
-    _redactBody(data, TelescopeRedaction.hiddenResponseParameters);
+    _redactBody(data, CrumbsRedaction.hiddenResponseParameters);
 
 Object? _redactBody(Object? data, Set<String> keys) => data is String
-    ? TelescopeRedaction.redactBody(data, keys)
-    : TelescopeRedaction.redactParameters(data, keys);
+    ? CrumbsRedaction.redactBody(data, keys)
+    : CrumbsRedaction.redactParameters(data, keys);
 
 /// Render an arbitrary request/response body into the bounded string
 /// [HttpRequestRecord] expects. Truncates at 8 KB to keep the ring
@@ -354,13 +357,13 @@ String? _truncate(Object? body) {
 // Model watcher ; subscribes to Magic's model lifecycle events.
 // ---------------------------------------------------------------------------
 
-/// [TelescopeWatcher] that subscribes to `ModelCreated`, `ModelSaved`,
-/// `ModelDeleted` and feeds [TelescopeStore.recordMagicModel].
+/// [CrumbsWatcher] that subscribes to `ModelCreated`, `ModelSaved`,
+/// `ModelDeleted` and feeds [CrumbsStore.recordModel].
 ///
 /// Registers three listener factories with [EventDispatcher] ; magic's
 /// dispatcher invokes the factory once per dispatch and calls the
 /// listener's `handle` method.
-class MagicModelWatcher implements TelescopeWatcher {
+class MagicModelWatcher implements CrumbsWatcher {
   @override
   String get name => 'magic_model';
 
@@ -390,13 +393,13 @@ class MagicModelWatcher implements TelescopeWatcher {
   }
 }
 
-/// Translates a [ModelEvent] into a [MagicModelRecord] and pushes it to
+/// Translates a [ModelEvent] into a [ModelRecord] and pushes it to
 /// the store. Bound to a single event tag ('created'/'saved'/'deleted')
 /// at construction.
 class _ModelLifecycleListener extends MagicListener<ModelEvent> {
   _ModelLifecycleListener(this.eventTag);
 
-  /// 'created' | 'saved' | 'deleted' ; matches [MagicModelRecord.event].
+  /// 'created' | 'saved' | 'deleted' ; matches [ModelRecord.event].
   final String eventTag;
 
   @override
@@ -405,8 +408,8 @@ class _ModelLifecycleListener extends MagicListener<ModelEvent> {
     final dynamic key = model.id;
     final ({String? interactionId, String linkedBy}) link =
         MagicPerfIntegration.interactionLink();
-    TelescopeStore.recordMagicModel(
-      MagicModelRecord(
+    CrumbsStore.recordModel(
+      ModelRecord(
         modelClass: model.runtimeType.toString(),
         event: eventTag,
         modelKey: key == null ? '' : key.toString(),
@@ -420,22 +423,15 @@ class _ModelLifecycleListener extends MagicListener<ModelEvent> {
 }
 
 // ---------------------------------------------------------------------------
-// Cache watcher ; placeholder for V1.x cache event wiring.
+// Cache watcher ; magic's cache events.
 // ---------------------------------------------------------------------------
 
-/// [TelescopeWatcher] for Magic's cache facade.
+/// [CrumbsWatcher] for Magic's cache facade.
 ///
-/// V1.x: magic's `Cache` facade does not emit lifecycle events today
-/// (no `CacheHit`/`CacheMiss`/`CacheWritten`/`CacheForgotten` event
-/// classes exist in `lib/src/cache/`). This watcher is registered as
-/// part of the public surface so the V1.x upgrade ; once cache events
-/// land upstream ; is a one-file change in this package: subscribe via
-/// [EventDispatcher.instance.register] inside [install], identical to
-/// [MagicModelWatcher].
-///
-/// Until then, [install] is a no-op and [TelescopeStore.recentCaches]
-/// will be empty for magic cache traffic.
-class MagicCacheWatcher implements TelescopeWatcher {
+/// Subscribes to the five cache events magic's `Cache` facade dispatches
+/// (`CacheHit`, `CacheMiss`, `CachePut`, `CacheForget`, `CacheFlush`) and
+/// feeds [CrumbsStore.recordCache], identical to [MagicModelWatcher].
+class MagicCacheWatcher implements CrumbsWatcher {
   bool _installed = false;
 
   @override
@@ -447,7 +443,7 @@ class MagicCacheWatcher implements TelescopeWatcher {
     _installed = true;
 
     // Subscribe to the 5 cache events emitted by [CacheManager.get/put/
-    // forget/flush]; each listener records a [MagicCacheRecord] with the
+    // forget/flush]; each listener records a [CacheRecord] with the
     // canonical operation tag.
     EventDispatcher.instance.register(CacheHit, <MagicListener Function()>[
       () => _CacheListener('hit'),
@@ -474,7 +470,7 @@ class MagicCacheWatcher implements TelescopeWatcher {
   }
 }
 
-/// Translates the 5 cache events into [MagicCacheRecord] entries. Bound to a
+/// Translates the 5 cache events into [CacheRecord] entries. Bound to a
 /// single op tag at construction; the watcher registers one listener per
 /// event type.
 class _CacheListener extends MagicListener<MagicEvent> {
@@ -502,8 +498,8 @@ class _CacheListener extends MagicListener<MagicEvent> {
     }
     final ({String? interactionId, String linkedBy}) link =
         MagicPerfIntegration.interactionLink();
-    TelescopeStore.recordMagicCache(
-      MagicCacheRecord(
+    CrumbsStore.recordCache(
+      CacheRecord(
         operation: op,
         key: key,
         time: DateTime.now(),
@@ -519,7 +515,7 @@ class _CacheListener extends MagicListener<MagicEvent> {
 // Event watcher ; subscribes to the curated alpha-2 magic event set.
 // ---------------------------------------------------------------------------
 
-/// [TelescopeWatcher] for magic's app-event surface (auth, db, gate
+/// [CrumbsWatcher] for magic's app-event surface (auth, db, gate
 /// definitions). Excludes model lifecycle events (owned by
 /// [MagicModelWatcher]) and the gate-result event (owned by
 /// [MagicGateWatcher]) to keep each record on a single channel.
@@ -527,7 +523,7 @@ class _CacheListener extends MagicListener<MagicEvent> {
 /// ALPHA-2 SCOPE: payload is the empty map for every event type. Per-event
 /// field-map extraction is deferred to a follow-up alpha so the wire
 /// shape of [EventRecord] can stabilise first.
-class MagicEventWatcher implements TelescopeWatcher {
+class MagicEventWatcher implements CrumbsWatcher {
   /// Per-instance guard. Second [install] call on the same watcher is a
   /// no-op ; [EventDispatcher.register] is additive (it append-and-runs
   /// every factory on every dispatch), so without the guard a single
@@ -555,8 +551,8 @@ class MagicEventWatcher implements TelescopeWatcher {
       () => _EventToRecord<AuthRestored>('AuthRestored'),
     ]);
 
-    // 2. Database lifecycle (connection only; QueryExecuted is omitted
-    //    until alpha-3 ships a dedicated query channel).
+    // 2. Database lifecycle (connection only; QueryExecuted belongs to
+    //    MagicQueryWatcher, which records it on its own channel).
     EventDispatcher.instance.register(
       DatabaseConnected,
       <MagicListener Function()>[
@@ -603,7 +599,7 @@ class _EventToRecord<T extends MagicEvent> extends MagicListener<T> {
   Future<void> handle(T event) async {
     final ({String? interactionId, String linkedBy}) link =
         MagicPerfIntegration.interactionLink();
-    TelescopeStore.recordEvent(
+    CrumbsStore.recordEvent(
       EventRecord(
         eventType: eventTypeName,
         payload: const <String, dynamic>{},
@@ -619,11 +615,11 @@ class _EventToRecord<T extends MagicEvent> extends MagicListener<T> {
 // Gate watcher ; subscribes to GateAccessChecked (both allowed and denied).
 // ---------------------------------------------------------------------------
 
-/// [TelescopeWatcher] for magic's gate-result event. Subscribes to the
+/// [CrumbsWatcher] for magic's gate-result event. Subscribes to the
 /// canonical [GateAccessChecked] (covers both allow and deny outcomes via
 /// `allowed: bool`); the convenience [GateAccessDenied] event is NOT
 /// subscribed to because it would double-record every denial.
-class MagicGateWatcher implements TelescopeWatcher {
+class MagicGateWatcher implements CrumbsWatcher {
   /// Per-instance guard ; see [MagicEventWatcher._installed] for the
   /// rationale (avoids double-record on a second install).
   bool _installed = false;
@@ -659,7 +655,7 @@ class _GateAccessCheckedListener extends MagicListener<GateAccessChecked> {
   Future<void> handle(GateAccessChecked event) async {
     final Model? user = event.user;
     final dynamic userId = user?.id;
-    TelescopeStore.recordGate(
+    CrumbsStore.recordGate(
       GateRecord(
         ability: event.ability,
         result: event.allowed,
@@ -687,11 +683,11 @@ class _GateAccessCheckedListener extends MagicListener<GateAccessChecked> {
 // Query watcher ; subscribes to magic's QueryExecuted event for DB tracing.
 // ---------------------------------------------------------------------------
 
-/// [TelescopeWatcher] for magic's `QueryExecuted` event (dispatched by
+/// [CrumbsWatcher] for magic's `QueryExecuted` event (dispatched by
 /// QueryBuilder after every SQL run). Captures sql + bindings + timeMs +
 /// connection into a [QueryRecord]; surfaces via
-/// `telescope:queries` CLI / `telescope_queries` MCP tool.
-class MagicQueryWatcher implements TelescopeWatcher {
+/// `crumbs:queries` CLI / `crumbs_queries` MCP tool.
+class MagicQueryWatcher implements CrumbsWatcher {
   bool _installed = false;
 
   @override
@@ -722,7 +718,7 @@ class _QueryExecutedListener extends MagicListener<QueryExecuted> {
   Future<void> handle(QueryExecuted event) async {
     final ({String? interactionId, String linkedBy}) link =
         MagicPerfIntegration.interactionLink();
-    TelescopeStore.recordQuery(
+    CrumbsStore.recordQuery(
       QueryRecord(
         sql: event.sql,
         bindings: List<Object?>.from(event.bindings),

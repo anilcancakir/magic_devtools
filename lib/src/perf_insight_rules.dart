@@ -1,8 +1,8 @@
-/// The wind and magic insight rules `ext.dusk.perf_end` runs through dusk's
+/// The wind and magic insight rules `ext.tapir.perf_end` runs through tapir's
 /// `perfInsightContributors` seam.
 ///
-/// They live here, not in dusk, because judging them needs to know what a
-/// wind wrapper or a magic notify cause MEANS, and dusk may not import either
+/// They live here, not in tapir, because judging them needs to know what a
+/// wind wrapper or a magic notify cause MEANS, and tapir may not import either
 /// package. Every rule states the threshold it fired on in
 /// `evidence.threshold` and normalises by painted frames (the report's
 /// `coverage.framesSummarized`), the one denominator two sessions of
@@ -10,7 +10,7 @@
 /// silent rather than guessing.
 library;
 
-/// Everything the rules read beyond the report dusk hands a contributor.
+/// Everything the rules read beyond the report tapir hands a contributor.
 ///
 /// The report carries each counter family cut to its ranked head, so a rule
 /// reading it would judge a truncated sum; these are the same families UNCUT,
@@ -98,7 +98,7 @@ abstract final class PerfInsightRules {
   };
 
   /// Runs every rule against [report] and returns the insights that fired, in
-  /// the shape dusk's contributor seam takes.
+  /// the shape tapir's contributor seam takes.
   ///
   /// Nothing fires on a timing report: it carries no counters, and its
   /// milliseconds are the ones a rule must not tax.
@@ -434,7 +434,7 @@ abstract final class PerfInsightRules {
         'maxSameRequestPerInteraction': httpMaxSameRequestPerInteraction,
       },
       nextStep:
-          'Export the trace (dusk:perf_trace) and read the http track '
+          'Export the trace (tapir:perf_trace) and read the http track '
           'under ${worst.interaction}: which screen sends each request, and '
           'which could share one.',
       detail: <String, Object?>{'requests': byInteraction[worst.interaction]},

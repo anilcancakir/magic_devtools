@@ -4,7 +4,7 @@ import 'dart:collection';
 import 'package:flutter/foundation.dart' show FlutterTimeline;
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
-import 'package:fluttersdk_dusk/dusk.dart'
+import 'package:tapir/tapir.dart'
     show
         PerfInteraction,
         PerfMode,
@@ -16,15 +16,15 @@ import 'package:fluttersdk_dusk/dusk.dart'
         perfSessionBeginHook,
         perfSessionEndHook,
         perfTimelineReader;
-import 'package:fluttersdk_telescope/telescope.dart';
+import 'package:crumbs/crumbs.dart';
 import 'package:magic/magic.dart';
 
 import 'perf_insight_rules.dart';
 
-/// dusk's own no-op defaults, captured the first time [MagicPerfIntegration]
+/// tapir's own no-op defaults, captured the first time [MagicPerfIntegration]
 /// is about to overwrite them.
 ///
-/// Captured rather than re-typed here, so a change to dusk's declared shape
+/// Captured rather than re-typed here, so a change to tapir's declared shape
 /// reaches the reset instead of leaving this package and its tests agreeing
 /// with each other about a contract that had moved.
 ///
@@ -35,15 +35,15 @@ import 'perf_insight_rules.dart';
 /// and restored them, so every "back to the default" assertion was really
 /// asserting that install had happened. Verified with a standalone repro
 /// before replacing it.
-Map<String, Object?> Function()? _duskFramePerfDefault;
-Map<String, Object?> Function()? _duskPerfExtrasDefault;
-void Function(PerfMode mode)? _duskSessionBeginDefault;
-void Function()? _duskSessionEndDefault;
-List<Map<String, Object?>> Function()? _duskTimelineDefault;
+Map<String, Object?> Function()? _tapirFramePerfDefault;
+Map<String, Object?> Function()? _tapirPerfExtrasDefault;
+void Function(PerfMode mode)? _tapirSessionBeginDefault;
+void Function()? _tapirSessionEndDefault;
+List<Map<String, Object?>> Function()? _tapirTimelineDefault;
 
 /// Assembles the whole performance-diagnostic data path: magic's runtime
-/// activity through `MagicPerfHooks`, wind's aggregate counters, telescope's
-/// frame and record buffers, the wind and magic insight rules, and the dusk
+/// activity through `MagicPerfHooks`, wind's aggregate counters, crumbs'
+/// frame and record buffers, the wind and magic insight rules, and the tapir
 /// pointers that read them all.
 ///
 /// Host integration (the consumer gates with `!kReleaseMode`, so debug and
@@ -53,9 +53,9 @@ List<Map<String, Object?>> Function()? _duskTimelineDefault;
 /// if (!kReleaseMode) MagicDevtools.installPre();
 /// ```
 ///
-/// This package is the only place in the ecosystem where dusk, telescope, wind
+/// This package is the only place in the ecosystem where tapir, crumbs, wind
 /// and magic are all visible at once, which is why the pointer assignment can
-/// only live here: dusk's frozen dependency contract forbids it from importing
+/// only live here: tapir's frozen dependency contract forbids it from importing
 /// any of the three packages whose data it reports.
 ///
 /// The failure mode this class exists to prevent is silent. Every pointer has a
@@ -63,7 +63,7 @@ List<Map<String, Object?>> Function()? _duskTimelineDefault;
 /// of zeros rather than an error, in a different repository, at the end of a
 /// driven run that looked like it worked.
 ///
-/// `fluttersdk_wind` is reached through magic's barrel, which re-exports it
+/// `wind_kit` is reached through magic's barrel, which re-exports it
 /// wholesale (`magic/lib/magic.dart:4`); importing it directly here would be
 /// flagged as an unnecessary import.
 class MagicPerfIntegration {
@@ -101,27 +101,27 @@ class MagicPerfIntegration {
       _observerRegistered = true;
     }
 
-    // 2. wind and telescope: the two producers. Installing wind's resolver
+    // 2. wind and crumbs: the two producers. Installing wind's resolver
     //    costs nothing on its own; counting stays off until a session's begin
     //    hook enables it.
     Wind.installPerfResolver();
     final FramePerfWatcher watcher = FramePerfWatcher();
-    TelescopePlugin.registerWatcher(watcher);
+    CrumbsPlugin.registerWatcher(watcher);
     _watcher = watcher;
 
-    // 3. The dusk pointers. Each returns exactly the key set pinned in
-    //    `dusk/lib/src/utils/perf_readers.dart`; the consumer is in another
+    // 3. The tapir pointers. Each returns exactly the key set pinned in
+    //    `tapir/lib/src/utils/perf_readers.dart`; the consumer is in another
     //    repository, so a renamed key is invisible until a driven run.
     //
-    //    dusk's own defaults are captured HERE, immediately before they are
+    //    tapir's own defaults are captured HERE, immediately before they are
     //    overwritten, because that is the last moment they are still readable.
-    _duskFramePerfDefault ??= framePerfReader;
-    _duskPerfExtrasDefault ??= perfExtrasReader;
-    _duskSessionBeginDefault ??= perfSessionBeginHook;
-    _duskSessionEndDefault ??= perfSessionEndHook;
-    _duskTimelineDefault ??= perfTimelineReader;
+    _tapirFramePerfDefault ??= framePerfReader;
+    _tapirPerfExtrasDefault ??= perfExtrasReader;
+    _tapirSessionBeginDefault ??= perfSessionBeginHook;
+    _tapirSessionEndDefault ??= perfSessionEndHook;
+    _tapirTimelineDefault ??= perfTimelineReader;
     framePerfReader = () => <String, Object?>{
-      'frames': TelescopeStore.recentFramePerf()
+      'frames': CrumbsStore.recentFramePerf()
           .map<Map<String, Object?>>((FramePerfRecord r) => r.toJson())
           .toList(),
       'livenessCounter': FramePerfWatcher.livenessCounter,
@@ -139,7 +139,7 @@ class MagicPerfIntegration {
       // clearFramePerf(), never clear(): the latter wipes the HTTP, log and
       // exception buffers a developer may be reading alongside the session,
       // and resetForTesting() is @visibleForTesting and would fail analysis.
-      TelescopeStore.clearFramePerf();
+      CrumbsStore.clearFramePerf();
       // The magic-side counters are session-scoped for the same reason wind's
       // are: without this, every session reports the sum of all previous ones.
       _session.open(FlutterTimeline.now);
@@ -164,7 +164,7 @@ class MagicPerfIntegration {
   static bool get isInstalled => _installed;
 
   /// Which interaction the calling code belongs to, and how that was
-  /// established, in dusk's order:
+  /// established, in tapir's order:
   ///
   /// 1. `zone`: an interaction read off `Zone.current`, for work a gesture
   ///    started (its callbacks, and the timers, microtasks and streams they
@@ -173,7 +173,7 @@ class MagicPerfIntegration {
   ///    frame zone that no zone reaches (a build, an `initState` refetch).
   /// 3. `window`: no interaction; the work belongs to the session window only.
   ///
-  /// Every telescope record and every sink row this package writes is stamped
+  /// Every crumbs record and every sink row this package writes is stamped
   /// with it, so one rule decides all of them.
   ///
   /// [startUs] is when the work BEGAN, for a span that is only reported when
@@ -182,7 +182,7 @@ class MagicPerfIntegration {
   /// that started it would find the tap closed and drop it, and one that ends
   /// during the next tap would take that tap's zone. With it, the zone handle
   /// is accepted when its window `[startUs, closedAtUs ?? now]` holds the
-  /// start, closed or not, and otherwise dusk's `perfInteractionAt` names the
+  /// start, closed or not, and otherwise tapir's `perfInteractionAt` names the
   /// interaction whose window does (`frame`). The active slot is not consulted:
   /// it answers for now, not for [startUs].
   ///
@@ -226,24 +226,24 @@ class MagicPerfIntegration {
   /// The window of an interaction held as a zone value, or null when the value
   /// is not one.
   ///
-  /// Replaceable only because dusk's `PerfInteraction` has a private
+  /// Replaceable only because tapir's `PerfInteraction` has a private
   /// constructor: a host test cannot open a real one without driving a perf
   /// session over the VM Service, so it substitutes what counts as a handle.
   @visibleForTesting
   static ({String id, int startUs, int? closedAtUs})? Function(
     Object? zoneValue,
   )
-  zoneInteraction = _duskZoneInteraction;
+  zoneInteraction = _tapirZoneInteraction;
 
   /// The id of the interaction whose window holds [us], or null. Replaceable
   /// for the reason given on [zoneInteraction].
   @visibleForTesting
-  static String? Function(int us) interactionIdAt = _duskInteractionIdAt;
+  static String? Function(int us) interactionIdAt = _tapirInteractionIdAt;
 
-  /// The id of dusk's active interaction, or null. Replaceable for the reason
+  /// The id of tapir's active interaction, or null. Replaceable for the reason
   /// given on [zoneInteraction].
   @visibleForTesting
-  static String? Function() activeInteractionId = _duskActiveInteractionId;
+  static String? Function() activeInteractionId = _tapirActiveInteractionId;
 
   /// How many times each controller type has called `refreshUI()` since the
   /// last attribution session began, keyed by `runtimeType.toString()`.
@@ -259,7 +259,7 @@ class MagicPerfIntegration {
 
   /// Test-only reset. Drops the idempotency guard, clears the session state,
   /// removes the sink and this package's insight contributor, uninstalls the
-  /// frame watcher, restores the interaction sources, and restores every dusk
+  /// frame watcher, restores the interaction sources, and restores every tapir
   /// pointer to its no-op default so a later test asserting the
   /// missing-integration behaviour does not see a leaked binding.
   ///
@@ -268,7 +268,7 @@ class MagicPerfIntegration {
   ///
   /// Does NOT unregister the observer (a fresh `MagicRouter.reset()` drops it
   /// with the router instance) and cannot unregister the watcher from
-  /// [TelescopePlugin], whose list is private; uninstalling the watcher is
+  /// [CrumbsPlugin], whose list is private; uninstalling the watcher is
   /// what stops it recording.
   @visibleForTesting
   static void resetForTesting() {
@@ -278,30 +278,30 @@ class MagicPerfIntegration {
     _routeTransitions.clear();
     MagicPerfHooks.sink = null;
     perfInsightContributors.remove(_contributeInsights);
-    zoneInteraction = _duskZoneInteraction;
-    interactionIdAt = _duskInteractionIdAt;
-    activeInteractionId = _duskActiveInteractionId;
+    zoneInteraction = _tapirZoneInteraction;
+    interactionIdAt = _tapirInteractionIdAt;
+    activeInteractionId = _tapirActiveInteractionId;
     _watcher?.uninstall();
     _watcher = null;
     WindPerfCounters.enabled = false;
-    // Restored from the values dusk itself declared rather than hand-written
+    // Restored from the values tapir itself declared rather than hand-written
     // here. Re-typing them would let this package and its tests agree on a key
-    // set that had drifted from dusk's, and the assertions would keep passing
+    // set that had drifted from tapir's, and the assertions would keep passing
     // while production drifted with them. See the fields at the top of this
     // file for why they are captured on the first install and not at load.
     //
     // Null only when install() never ran, in which case the pointers are
-    // already at dusk's defaults and there is nothing to put back.
-    if (_duskFramePerfDefault != null) {
-      framePerfReader = _duskFramePerfDefault!;
-      perfExtrasReader = _duskPerfExtrasDefault!;
-      perfSessionBeginHook = _duskSessionBeginDefault!;
-      perfSessionEndHook = _duskSessionEndDefault!;
-      perfTimelineReader = _duskTimelineDefault!;
+    // already at tapir's defaults and there is nothing to put back.
+    if (_tapirFramePerfDefault != null) {
+      framePerfReader = _tapirFramePerfDefault!;
+      perfExtrasReader = _tapirPerfExtrasDefault!;
+      perfSessionBeginHook = _tapirSessionBeginDefault!;
+      perfSessionEndHook = _tapirSessionEndDefault!;
+      perfTimelineReader = _tapirTimelineDefault!;
     }
   }
 
-  static ({String id, int startUs, int? closedAtUs})? _duskZoneInteraction(
+  static ({String id, int startUs, int? closedAtUs})? _tapirZoneInteraction(
     Object? zoneValue,
   ) => zoneValue is PerfInteraction
       ? (
@@ -311,11 +311,11 @@ class MagicPerfIntegration {
         )
       : null;
 
-  static String? _duskInteractionIdAt(int us) => perfInteractionAt(us)?.id;
+  static String? _tapirInteractionIdAt(int us) => perfInteractionAt(us)?.id;
 
-  static String? _duskActiveInteractionId() => activeInteraction()?.id;
+  static String? _tapirActiveInteractionId() => activeInteraction()?.id;
 
-  /// The contributor dusk's insight engine calls with the report built so
+  /// The contributor tapir's insight engine calls with the report built so
   /// far. Reads the uncut session state the report only carries the head of.
   static List<Map<String, Object?>> _contributeInsights(
     Map<String, Object?> report,
@@ -336,7 +336,7 @@ class MagicPerfIntegration {
   static Map<String, List<String>> _httpByInteraction() {
     final int since = _session.startUs ?? 0;
     final Map<String, List<String>> out = <String, List<String>>{};
-    for (final HttpRequestRecord r in TelescopeStore.recentHttp()) {
+    for (final HttpRequestRecord r in CrumbsStore.recentHttp()) {
       final String? id = r.interactionId;
       if (id == null || (r.startUs ?? r.atUs) < since) continue;
       out.putIfAbsent(id, () => <String>[]).add('${r.method} ${_path(r.url)}');
@@ -345,11 +345,11 @@ class MagicPerfIntegration {
   }
 
   /// perfTimelineReader rows: the sink rows this package aggregated, then one
-  /// row per telescope record that has a time. dusk keeps the ones inside the
+  /// row per crumbs record that has a time. tapir keeps the ones inside the
   /// session window, so the whole buffer is returned.
   static List<Map<String, Object?>> _timelineRows() => <Map<String, Object?>>[
     ..._session.rows,
-    for (final HttpRequestRecord r in TelescopeStore.recentHttp())
+    for (final HttpRequestRecord r in CrumbsStore.recentHttp())
       _row(
         kind: 'span',
         track: 'http',
@@ -366,7 +366,7 @@ class MagicPerfIntegration {
           'durationMs': r.durationMs,
         },
       ),
-    for (final QueryRecord r in TelescopeStore.recentQueries())
+    for (final QueryRecord r in CrumbsStore.recentQueries())
       _row(
         kind: 'span',
         track: 'db',
@@ -377,7 +377,7 @@ class MagicPerfIntegration {
         linkedBy: r.linkedBy,
         args: <String, Object?>{'sql': r.sql, 'timeMs': r.timeMs},
       ),
-    for (final EventRecord r in TelescopeStore.recentEvents())
+    for (final EventRecord r in CrumbsStore.recentEvents())
       _row(
         kind: 'instant',
         track: 'events',
@@ -386,7 +386,7 @@ class MagicPerfIntegration {
         interactionId: r.interactionId,
         linkedBy: r.linkedBy,
       ),
-    for (final MagicModelRecord r in TelescopeStore.recentModels())
+    for (final ModelRecord r in CrumbsStore.recentModels())
       _row(
         kind: 'instant',
         track: 'models',
@@ -396,7 +396,7 @@ class MagicPerfIntegration {
         linkedBy: r.linkedBy,
         args: <String, Object?>{'key': r.modelKey},
       ),
-    for (final MagicCacheRecord r in TelescopeStore.recentCaches())
+    for (final CacheRecord r in CrumbsStore.recentCaches())
       _row(
         kind: 'instant',
         track: 'cache',
@@ -427,7 +427,7 @@ class MagicPerfIntegration {
       Queue<Map<String, Object?>>();
 }
 
-/// One perfTimelineReader row, in the schema dusk documents on that pointer.
+/// One perfTimelineReader row, in the schema tapir documents on that pointer.
 Map<String, Object?> _row({
   required String kind,
   required String track,
@@ -512,7 +512,7 @@ class _MagicPerfSession {
     rows.clear();
   }
 
-  /// The perfExtrasReader payload: exactly dusk's documented key set.
+  /// The perfExtrasReader payload: exactly tapir's documented key set.
   Map<String, Object?> extras(List<Map<String, Object?>> routeTransitions) =>
       <String, Object?>{
         'controllerNotifies': Map<String, int>.of(controllerNotifies),

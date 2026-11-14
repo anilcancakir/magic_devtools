@@ -1,9 +1,8 @@
 import 'dart:async';
 import 'dart:ui' show FrameTiming, PlatformDispatcher, TimingsCallback;
 
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:fluttersdk_dusk/dusk.dart'
+import 'package:tapir/tapir.dart'
     show
         PerfMode,
         framePerfReader,
@@ -12,11 +11,12 @@ import 'package:fluttersdk_dusk/dusk.dart'
         perfSessionBeginHook,
         perfSessionEndHook,
         perfTimelineReader;
-import 'package:fluttersdk_telescope/telescope.dart';
+import 'package:crumbs/crumbs.dart';
 import 'package:magic/magic.dart';
 import 'package:magic_devtools/magic_devtools.dart';
+import 'package:material_ui/material_ui.dart';
 
-/// Tests for [MagicPerfIntegration], the single place dusk, telescope, wind and
+/// Tests for [MagicPerfIntegration], the single place tapir, crumbs, wind and
 /// magic meet.
 ///
 /// The failure mode this file exists to prevent is silent: an unassigned reader
@@ -82,7 +82,7 @@ FramePerfRecord _frameRecord(int frameNumber) => FramePerfRecord(
 
 /// Moves wind's counters the way the app does: by building a real W-widget.
 ///
-/// The `record*` entry points are `@internal` to `fluttersdk_wind`, since they
+/// The `record*` entry points are `@internal` to `wind_kit`, since they
 /// exist for its own parse path, so reaching for them here would assert
 /// against a surface no consumer is meant to touch. A pump is also the honest
 /// version of this setup: it is what actually moves these numbers in an app.
@@ -115,8 +115,8 @@ Future<void> _warmTheParseCache(WidgetTester tester) async {
   WindPerfCounters.reset();
 }
 
-/// Stands in for dusk's `PerfInteraction`, whose constructor is private to
-/// dusk: a host test cannot open a real one without driving a perf session over
+/// Stands in for tapir's `PerfInteraction`, whose constructor is private to
+/// tapir: a host test cannot open a real one without driving a perf session over
 /// the VM Service. Carries the same window (`startUs`, `closedAtUs`) the real
 /// handle does, which is all the span link reads.
 class _FakeHandle {
@@ -130,8 +130,8 @@ class _FakeHandle {
 }
 
 /// Points the two seams `interactionLink` resolves a span through at
-/// [_FakeHandle]: the zone value, and dusk's `perfInteractionAt` over [log].
-/// The lookup is the same rule dusk applies: newest window holding the time.
+/// [_FakeHandle]: the zone value, and tapir's `perfInteractionAt` over [log].
+/// The lookup is the same rule tapir applies: newest window holding the time.
 void _useFakeHandles({List<_FakeHandle> log = const <_FakeHandle>[]}) {
   MagicPerfIntegration.zoneInteraction = (Object? value) => value is _FakeHandle
       ? (id: value.id, startUs: value.startUs, closedAtUs: value.closedAtUs)
@@ -150,7 +150,7 @@ void _useFakeHandles({List<_FakeHandle> log = const <_FakeHandle>[]}) {
 /// zone: the zone a timer or a request created during a gesture keeps.
 void _emitInZone(_FakeHandle handle, MagicPerfEvent event) => runZoned(
   () => MagicPerfHooks.emit(event),
-  zoneValues: <Object?, Object?>{#fluttersdk_interaction: handle},
+  zoneValues: <Object?, Object?>{#tapir_interaction: handle},
 );
 
 /// The one trace row on [track], asserting there is exactly one.
@@ -163,7 +163,7 @@ void main() {
     TestWidgetsFlutterBinding.ensureInitialized();
   });
 
-  // `MagicDevtools.installPre()` installs telescope's DumpWatcher, which
+  // `MagicDevtools.installPre()` installs crumbs' DumpWatcher, which
   // replaces the global `debugPrint`. Nothing used to put it back, so Flutter's
   // own post-test check ("the value of a foundation debug variable was changed
   // by the test") fired on whichever `testWidgets` case happened to run NEXT.
@@ -188,13 +188,13 @@ void main() {
     Magic.flush();
     MagicRouter.reset();
     MagicPerfIntegration.resetForTesting();
-    TelescopeStore.resetForTesting();
+    CrumbsStore.resetForTesting();
   });
 
   tearDown(() {
     MagicPerfIntegration.resetForTesting();
     MagicRouter.reset();
-    TelescopeStore.resetForTesting();
+    CrumbsStore.resetForTesting();
     WindPerfCounters.enabled = false;
     WindPerfCounters.reset();
     debugPrint = originalDebugPrint;
@@ -208,11 +208,11 @@ void main() {
       expect(MagicPerfIntegration.isInstalled, isTrue);
       expect(MagicRouter.instance.observers, hasLength(1));
 
-      // TelescopePlugin keeps its watcher list private, so the watcher count is
+      // CrumbsPlugin keeps its watcher list private, so the watcher count is
       // asserted through its only observable effect: a second FramePerfWatcher
       // would add a second timings callback and record the same frame twice.
       _fireTimings(<FrameTiming>[_timing(frameNumber: 7)]);
-      expect(TelescopeStore.recentFramePerf(), hasLength(1));
+      expect(CrumbsStore.recentFramePerf(), hasLength(1));
     });
 
     test('attributes notify counts to each controller runtime type', () {
@@ -247,10 +247,10 @@ void main() {
     });
   });
 
-  group('the dusk pointers', () {
+  group('the tapir pointers', () {
     test('framePerfReader returns the recorded frames and the counter', () {
-      TelescopeStore.recordFramePerf(_frameRecord(11));
-      TelescopeStore.recordFramePerf(_frameRecord(12));
+      CrumbsStore.recordFramePerf(_frameRecord(11));
+      CrumbsStore.recordFramePerf(_frameRecord(12));
 
       MagicPerfIntegration.install();
 
@@ -271,13 +271,13 @@ void main() {
       expect(payload['livenessCounter'], isA<int>());
     });
 
-    test('perfExtrasReader returns exactly dusk\'s documented key set', () {
+    test('perfExtrasReader returns exactly tapir\'s documented key set', () {
       MagicPerfIntegration.install();
       perfSessionBeginHook(PerfMode.attribution);
       _AlphaController().refreshUI();
 
       final Map<String, Object?> payload = perfExtrasReader();
-      // dusk ignores an unknown key rather than failing the report, so a
+      // tapir ignores an unknown key rather than failing the report, so a
       // renamed key would read as an empty section; pinned here instead.
       expect(
         payload.keys,
@@ -323,13 +323,13 @@ void main() {
       expect(MagicPerfIntegration.controllerNotifyCounts, <String, int>{});
     });
 
-    test('perfTimelineReader carries sink rows and telescope records in '
-        'dusk\'s row schema, stamped with their link', () {
+    test('perfTimelineReader carries sink rows and crumbs records in '
+        'tapir\'s row schema, stamped with their link', () {
       MagicPerfIntegration.install();
       perfSessionBeginHook(PerfMode.attribution);
       _AlphaController().refreshUI();
       MagicPerfHooks.emit(QueryReloaded(_AlphaController, 100, 250, false));
-      TelescopeStore.recordHttp(
+      CrumbsStore.recordHttp(
         HttpRequestRecord(
           url: 'https://api.test/monitors?page=1',
           method: 'GET',
@@ -421,8 +421,8 @@ void main() {
       // afterwards proves nothing if it was already zero, which is what this
       // case did while it happened to run first.
       expect(WindPerfCounters.cacheHits, greaterThan(0));
-      TelescopeStore.recordFramePerf(_frameRecord(3));
-      TelescopeStore.recordDump(
+      CrumbsStore.recordFramePerf(_frameRecord(3));
+      CrumbsStore.recordDump(
         DumpRecord(message: 'sibling buffer', time: DateTime(2026, 8, 25)),
       );
 
@@ -433,12 +433,12 @@ void main() {
       perfSessionBeginHook(PerfMode.attribution);
 
       expect(WindPerfCounters.cacheHits, 0);
-      expect(TelescopeStore.recentFramePerf(), isEmpty);
+      expect(CrumbsStore.recentFramePerf(), isEmpty);
       expect(MagicPerfIntegration.controllerNotifyCounts, isEmpty);
-      // TelescopeStore.clear() would have taken this with it, which is why the
+      // CrumbsStore.clear() would have taken this with it, which is why the
       // hook calls clearFramePerf() instead.
       expect(
-        TelescopeStore.recentDumps().map((DumpRecord r) => r.message),
+        CrumbsStore.recentDumps().map((DumpRecord r) => r.message),
         contains('sibling buffer'),
       );
     });
@@ -539,7 +539,7 @@ void main() {
       MagicPerfIntegration.install();
       perfSessionBeginHook(PerfMode.attribution);
       _AlphaController().refreshUI();
-      TelescopeStore.recordFramePerf(_frameRecord(5));
+      CrumbsStore.recordFramePerf(_frameRecord(5));
 
       MagicPerfIntegration.resetForTesting();
 
@@ -568,14 +568,14 @@ void main() {
       expect(
         MagicPerfIntegration.zoneInteraction(Object()),
         isNull,
-        reason: 'only a real open dusk interaction counts as a zone handle',
+        reason: 'only a real open tapir interaction counts as a zone handle',
       );
 
       // The restored hooks are no-ops: the frame buffer survives the begin
       // hook and counting stays off after the end hook.
       perfSessionBeginHook(PerfMode.attribution);
       perfSessionEndHook();
-      expect(TelescopeStore.recentFramePerf(), hasLength(1));
+      expect(CrumbsStore.recentFramePerf(), hasLength(1));
       expect(WindPerfCounters.enabled, isFalse);
     });
   });
@@ -590,13 +590,17 @@ void main() {
       // any tearDown runs.
       //
       // If you do convert it, note that `installPre()` also leaves a
-      // SemanticsHandle active (dusk's snapshot pipeline enables semantics),
+      // SemanticsHandle active (tapir's snapshot pipeline enables semantics),
       // which is a second end-of-test invariant and needs its own dispose.
       // Measured by converting this case as a probe.
       addTearDown(restoreDebugPrint);
+      // `installPre()` keeps its exception and dump watchers for the isolate;
+      // uninstalling them restores the handlers they chained onto.
+      addTearDown(MagicDevtools.resetForTesting);
 
       expect(MagicPerfIntegration.isInstalled, isTrue);
       expect(MagicRouter.instance.observers, hasLength(1));
+      MagicDevtools.resetForTesting();
       restoreDebugPrint();
     });
   });

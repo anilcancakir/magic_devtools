@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-11-14
+
+### BREAKING
+
+- **Needs core `magic` `^1.0.0`.** That release moves to `dowel`, `wind_kit` and `material_ui`, and raises the floors to Dart 3.13 and Flutter 3.47, which this package now shares. `fluttersdk_wind` is now `wind_kit` (`^1.12.0`), and `material_ui` (`^1.11.0`) replaces `package:flutter/material.dart` in `lib/` and `test/`. (`pubspec.yaml`, `lib/`, `test/`)
+- **`fluttersdk_dusk` and `fluttersdk_telescope` are replaced by `tapir ^1.0.0` and `crumbs ^1.0.0`.** Both old packages are discontinued upstream. The barrels `package:magic_devtools/dusk.dart` and `package:magic_devtools/telescope.dart` become `tapir.dart` and `crumbs.dart`, `MagicDuskIntegration` becomes `MagicTapirIntegration` and `MagicTelescopeIntegration` becomes `MagicCrumbsIntegration`, with no alias left under the old names. `MagicDevtools.installPre()` and `installPost()` keep their signatures and now install `TapirPlugin` and `CrumbsPlugin`. The perf zone key an interaction is read from is tapir's `#tapir_interaction`, and the `tapir:install` and `crumbs:install` commands wire these integrations into `lib/main.dart` once this release is resolved. The three enrichers that read recent HTTP, log and exception records, and the three reader pointers `MagicCrumbsIntegration` assigns, now read `CrumbsStore`. (`pubspec.yaml`, `lib/tapir.dart`, `lib/crumbs.dart`, `lib/src/tapir_integration.dart`, `lib/src/crumbs_integration.dart`, `lib/src/perf_integration.dart`, `lib/src/magic_devtools.dart`)
+
+### Changed
+
+- **First stable release:** version 1.0.0 replaces the planned 0.0.12 and requires `magic ^1.0.0`, `magic_socket ^1.0.0`, `tapir ^1.0.0` and `crumbs ^1.0.0`; no API change beyond what is listed here.
+- **Depends on `magic_socket` and `magic ^1.0.0`.** Core no longer ships `Echo` and the broadcasting layer, so `MagicTapirIntegration` imports them from `magic_socket`; it still skips the Echo enricher when no `broadcasting` binding is registered. (`pubspec.yaml`, `lib/src/tapir_integration.dart`)
+- **Direct dependencies raised to their latest releases.** `tapir ^1.0.0`, `crumbs ^1.0.0` and dev `flutter_lints ^6.0.0`. (`pubspec.yaml`)
+- **tapir reads Wind through the contract `wind_kit` publishes.** tapir looks Wind's debug data up through `wind_kit_diagnostics_contracts`, so the mismatch the dusk 0.0.23 pairing had with `fluttersdk_wind_diagnostics_contracts` no longer exists. The app still calls `Wind.installDebugResolver()` itself (tapir's installer does not write that line), and this package changed no code for it. (`pubspec.yaml`)
+
+### Fixed
+
+- **`MagicDevtools.installPre()` registered the exception and dump watchers on every call.** `registerWatcher` takes a new instance each time and the watchers guard per instance, so a second call (or a lazy debug toggle) chained a second pair onto the first and recorded every exception and `debugPrint` twice. The class now keeps the pair it registered and adds none on a later call; `MagicDevtools.resetForTesting()` uninstalls it for tests. (`lib/src/magic_devtools.dart`, `test/magic_devtools_test.dart`)
+- **The docs called this package a `dev_dependency`, and claimed more than the installers do.** `lib/main.dart` imports it, so it is a regular dependency under `!kReleaseMode`; the README now says what `tapir:install` and `crumbs:install` write (single-tool blocks, crumbs under `kDebugMode`, no `MagicDevtools` or `MagicPerfIntegration`), and its Crumbs snippet registers the exception and dump watchers. (`README.md`, `CLAUDE.md`, `lib/tapir.dart`, `lib/crumbs.dart`)
+- **`MagicCacheWatcher` documented itself as a no-op.** It has subscribed to `CacheHit`, `CacheMiss`, `CachePut`, `CacheForget` and `CacheFlush` since magic added them; the class and section comments now say so. (`lib/src/crumbs_integration.dart`)
+- **`MagicTapirIntegration` documented a first-write-wins rule tapir does not apply.** tapir writes every enricher fragment, so two enrichers emitting one key put both lines in the snapshot; the doc comments and `CLAUDE.md` now say to keep keys distinct. (`lib/src/tapir_integration.dart`, `CLAUDE.md`)
+
 ## [0.0.11] - 2026-10-14
 
 ### Changed

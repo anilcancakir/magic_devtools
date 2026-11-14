@@ -1,11 +1,12 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:fluttersdk_dusk/dusk.dart';
-import 'package:fluttersdk_telescope/telescope.dart';
+import 'package:tapir/tapir.dart';
+import 'package:crumbs/crumbs.dart';
 import 'package:magic/magic.dart';
-import 'package:magic_devtools/dusk.dart';
+import 'package:magic_devtools/tapir.dart';
+import 'package:magic_socket/magic_socket.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// Tests for the 5 new enrichers added in Plan Step 17, sub-change (c)
 /// alongside the existing `magicFormEnricher` + `magicNavigationEnricher`.
@@ -16,7 +17,7 @@ import 'package:magic_devtools/dusk.dart';
 /// - Never retains the Element across calls.
 /// - Reads only — no shared-state mutation.
 ///
-/// `MagicDuskIntegration.install()` registers all 7 in insertion order;
+/// `MagicTapirIntegration.install()` registers all 7 in insertion order;
 /// `resetForTesting()` drops all 7.
 
 // ---------------------------------------------------------------------------
@@ -62,60 +63,60 @@ void main() {
     TitleManager.reset();
     MagicRouter.reset();
     Gate.manager.flush();
-    MagicDuskIntegration.resetForTesting();
+    MagicTapirIntegration.resetForTesting();
   });
 
   tearDown(() {
     Auth.unfake();
-    MagicDuskIntegration.resetForTesting();
+    MagicTapirIntegration.resetForTesting();
   });
 
   // ---------------------------------------------------------------------------
   // install() / resetForTesting() — covers all 7 enrichers
   // ---------------------------------------------------------------------------
 
-  group('MagicDuskIntegration.install', () {
+  group('MagicTapirIntegration.install', () {
     test('registers all 14 enrichers in insertion order on first install', () {
-      expect(DuskPlugin.enrichers, isEmpty);
+      expect(TapirPlugin.enrichers, isEmpty);
 
-      MagicDuskIntegration.install();
+      MagicTapirIntegration.install();
 
       // Insertion order matters per oracle contract: original two first,
       // then Plan-Step-17 enrichers (slots 2..6), then Step-1.1 (slots 7..8),
-      // then Step-1.2 enrichers (slots 9..10), then Step-1.3 telescope-bridge
+      // then Step-1.2 enrichers (slots 9..10), then Step-1.3 crumbs-bridge
       // enrichers (slots 11..13).
-      expect(DuskPlugin.enrichers, hasLength(14));
-      expect(DuskPlugin.enrichers[0], same(magicFormEnricher));
-      expect(DuskPlugin.enrichers[1], same(magicNavigationEnricher));
-      expect(DuskPlugin.enrichers[2], same(magicControllerEnricher));
-      expect(DuskPlugin.enrichers[3], same(magicFormErrorsEnricher));
-      expect(DuskPlugin.enrichers[4], same(magicGateResultEnricher));
-      expect(DuskPlugin.enrichers[5], same(magicMiddlewareEnricher));
-      expect(DuskPlugin.enrichers[6], same(magicAuthUserEnricher));
-      expect(DuskPlugin.enrichers[7], same(magicControllerFlagsEnricher));
-      expect(DuskPlugin.enrichers[8], same(magicRouteParamsEnricher));
-      expect(DuskPlugin.enrichers[9], same(magicEchoConnectionEnricher));
-      expect(DuskPlugin.enrichers[10], same(magicGateResultsAllEnricher));
-      expect(DuskPlugin.enrichers[11], same(magicRecentHttpEnricher));
-      expect(DuskPlugin.enrichers[12], same(magicRecentLogsEnricher));
-      expect(DuskPlugin.enrichers[13], same(magicRecentExceptionsEnricher));
+      expect(TapirPlugin.enrichers, hasLength(14));
+      expect(TapirPlugin.enrichers[0], same(magicFormEnricher));
+      expect(TapirPlugin.enrichers[1], same(magicNavigationEnricher));
+      expect(TapirPlugin.enrichers[2], same(magicControllerEnricher));
+      expect(TapirPlugin.enrichers[3], same(magicFormErrorsEnricher));
+      expect(TapirPlugin.enrichers[4], same(magicGateResultEnricher));
+      expect(TapirPlugin.enrichers[5], same(magicMiddlewareEnricher));
+      expect(TapirPlugin.enrichers[6], same(magicAuthUserEnricher));
+      expect(TapirPlugin.enrichers[7], same(magicControllerFlagsEnricher));
+      expect(TapirPlugin.enrichers[8], same(magicRouteParamsEnricher));
+      expect(TapirPlugin.enrichers[9], same(magicEchoConnectionEnricher));
+      expect(TapirPlugin.enrichers[10], same(magicGateResultsAllEnricher));
+      expect(TapirPlugin.enrichers[11], same(magicRecentHttpEnricher));
+      expect(TapirPlugin.enrichers[12], same(magicRecentLogsEnricher));
+      expect(TapirPlugin.enrichers[13], same(magicRecentExceptionsEnricher));
     });
 
     test('install() is idempotent (no duplicates on second call)', () {
-      MagicDuskIntegration.install();
-      MagicDuskIntegration.install();
+      MagicTapirIntegration.install();
+      MagicTapirIntegration.install();
 
-      expect(DuskPlugin.enrichers, hasLength(14));
+      expect(TapirPlugin.enrichers, hasLength(14));
     });
 
     test('resetForTesting() drops all 14 enrichers', () {
-      MagicDuskIntegration.install();
-      expect(DuskPlugin.enrichers, hasLength(14));
+      MagicTapirIntegration.install();
+      expect(TapirPlugin.enrichers, hasLength(14));
 
-      MagicDuskIntegration.resetForTesting();
+      MagicTapirIntegration.resetForTesting();
 
-      expect(DuskPlugin.enrichers, isEmpty);
-      expect(MagicDuskIntegration.isInstalled, isFalse);
+      expect(TapirPlugin.enrichers, isEmpty);
+      expect(MagicTapirIntegration.isInstalled, isFalse);
     });
   });
 
@@ -851,7 +852,7 @@ void main() {
         final fake = Echo.fake();
         await fake.driver.connect();
 
-        MagicDuskIntegration.install();
+        MagicTapirIntegration.install();
 
         await tester.pumpWidget(const MaterialApp(home: SizedBox()));
         final element = _findElement(tester, SizedBox);
@@ -872,7 +873,7 @@ void main() {
         // Ensure driver is disconnected (default state).
         await fake.driver.disconnect();
 
-        MagicDuskIntegration.install();
+        MagicTapirIntegration.install();
 
         await tester.pumpWidget(const MaterialApp(home: SizedBox()));
         final element = _findElement(tester, SizedBox);
@@ -890,15 +891,15 @@ void main() {
       tester,
     ) async {
       Echo.fake();
-      MagicDuskIntegration.install();
+      MagicTapirIntegration.install();
 
-      expect(MagicDuskIntegration.isInstalled, isTrue);
+      expect(MagicTapirIntegration.isInstalled, isTrue);
 
       // resetForTesting() is called in setUp via tearDown — calling it again
       // here must not throw (subscription cancel is idempotent).
-      MagicDuskIntegration.resetForTesting();
+      MagicTapirIntegration.resetForTesting();
 
-      expect(MagicDuskIntegration.isInstalled, isFalse);
+      expect(MagicTapirIntegration.isInstalled, isFalse);
 
       // After reset, without broadcasting re-registered, enricher returns null.
       MagicApp.reset();
@@ -925,7 +926,7 @@ void main() {
 
         Magic.app.setInstance('broadcasting', fakeManager);
 
-        MagicDuskIntegration.install();
+        MagicTapirIntegration.install();
 
         // Push a connected event into the stream.
         controller.add(BroadcastConnectionState.connected);
@@ -1232,16 +1233,16 @@ void main() {
 
   group('magicRecentHttpEnricher', () {
     setUp(() {
-      TelescopeStore.resetForTesting();
+      CrumbsStore.resetForTesting();
     });
 
     tearDown(() {
-      TelescopeStore.resetForTesting();
+      CrumbsStore.resetForTesting();
     });
 
     testWidgets(
-      'returns null when the telescope http buffer is empty (also covers the '
-      'telescope-absent fallback: guards the try/catch path with a graceful null)',
+      'returns null when the crumbs http buffer is empty (also covers the '
+      'crumbs-absent fallback: guards the try/catch path with a graceful null)',
       (tester) async {
         await tester.pumpWidget(const MaterialApp(home: SizedBox()));
         final element = _findElement(tester, SizedBox);
@@ -1255,7 +1256,7 @@ void main() {
     testWidgets(
       'emits `magicRecentHttp: METHOD url status durationMs` for non-empty buffer',
       (tester) async {
-        TelescopeStore.recordHttp(
+        CrumbsStore.recordHttp(
           HttpRequestRecord(
             url: '/monitors',
             method: 'GET',
@@ -1282,7 +1283,7 @@ void main() {
       // 60-char URL — must be cropped to 40 chars total in emitted output
       // (37 chars + "..." suffix per the 40-char budget).
       final long = '/api/v1/${'x' * 80}/show';
-      TelescopeStore.recordHttp(
+      CrumbsStore.recordHttp(
         HttpRequestRecord(
           url: long,
           method: 'POST',
@@ -1311,7 +1312,7 @@ void main() {
         // Insert 7 records — recentHttp(limit: 5) keeps the latest 5 in
         // insertion order (FIFO over the buffer).
         for (int i = 1; i <= 7; i++) {
-          TelescopeStore.recordHttp(
+          CrumbsStore.recordHttp(
             HttpRequestRecord(
               url: '/r$i',
               method: 'GET',
@@ -1341,7 +1342,7 @@ void main() {
     testWidgets('joins multiple records with a single comma separator', (
       tester,
     ) async {
-      TelescopeStore.recordHttp(
+      CrumbsStore.recordHttp(
         HttpRequestRecord(
           url: '/a',
           method: 'GET',
@@ -1351,7 +1352,7 @@ void main() {
           timestamp: DateTime.now(),
         ),
       );
-      TelescopeStore.recordHttp(
+      CrumbsStore.recordHttp(
         HttpRequestRecord(
           url: '/b',
           method: 'POST',
@@ -1375,7 +1376,7 @@ void main() {
     testWidgets('does not retain the Element across calls (fresh-read)', (
       tester,
     ) async {
-      TelescopeStore.recordHttp(
+      CrumbsStore.recordHttp(
         HttpRequestRecord(
           url: '/first',
           method: 'GET',
@@ -1393,7 +1394,7 @@ void main() {
 
       // Append a fresh record, re-pump a fresh element — second read must
       // surface BOTH entries (no stale element retention, fresh buffer read).
-      TelescopeStore.recordHttp(
+      CrumbsStore.recordHttp(
         HttpRequestRecord(
           url: '/second',
           method: 'POST',
@@ -1420,16 +1421,16 @@ void main() {
 
   group('magicRecentLogsEnricher', () {
     setUp(() {
-      TelescopeStore.resetForTesting();
+      CrumbsStore.resetForTesting();
     });
 
     tearDown(() {
-      TelescopeStore.resetForTesting();
+      CrumbsStore.resetForTesting();
     });
 
     testWidgets(
-      'returns null when the telescope log buffer is empty (also covers the '
-      'telescope-absent fallback)',
+      'returns null when the crumbs log buffer is empty (also covers the '
+      'crumbs-absent fallback)',
       (tester) async {
         await tester.pumpWidget(const MaterialApp(home: SizedBox()));
         final element = _findElement(tester, SizedBox);
@@ -1441,7 +1442,7 @@ void main() {
     testWidgets(
       'emits `magicRecentLogs: [WARN] msg,[ERROR] msg` for warning/severe entries',
       (tester) async {
-        TelescopeStore.recordLog(
+        CrumbsStore.recordLog(
           LogRecordEntry(
             level: 'WARNING',
             levelValue: 900,
@@ -1450,7 +1451,7 @@ void main() {
             time: DateTime.now(),
           ),
         );
-        TelescopeStore.recordLog(
+        CrumbsStore.recordLog(
           LogRecordEntry(
             level: 'SEVERE',
             levelValue: 1000,
@@ -1474,7 +1475,7 @@ void main() {
     testWidgets(
       'filters out logs below the WARNING threshold (info/fine are dropped)',
       (tester) async {
-        TelescopeStore.recordLog(
+        CrumbsStore.recordLog(
           LogRecordEntry(
             level: 'INFO',
             levelValue: 800,
@@ -1483,7 +1484,7 @@ void main() {
             time: DateTime.now(),
           ),
         );
-        TelescopeStore.recordLog(
+        CrumbsStore.recordLog(
           LogRecordEntry(
             level: 'WARNING',
             levelValue: 900,
@@ -1507,7 +1508,7 @@ void main() {
       'truncates messages longer than 50 characters with an ellipsis',
       (tester) async {
         final long = 'y' * 80;
-        TelescopeStore.recordLog(
+        CrumbsStore.recordLog(
           LogRecordEntry(
             level: 'WARNING',
             levelValue: 900,
@@ -1534,7 +1535,7 @@ void main() {
       tester,
     ) async {
       for (int i = 1; i <= 5; i++) {
-        TelescopeStore.recordLog(
+        CrumbsStore.recordLog(
           LogRecordEntry(
             level: 'WARNING',
             levelValue: 900,
@@ -1560,7 +1561,7 @@ void main() {
     testWidgets('does not retain the Element across calls (fresh-read)', (
       tester,
     ) async {
-      TelescopeStore.recordLog(
+      CrumbsStore.recordLog(
         LogRecordEntry(
           level: 'WARNING',
           levelValue: 900,
@@ -1575,8 +1576,8 @@ void main() {
       magicRecentLogsEnricher(firstElement, RefRegistry.instance);
 
       // Clear and re-record — second read must reflect fresh state.
-      TelescopeStore.resetForTesting();
-      TelescopeStore.recordLog(
+      CrumbsStore.resetForTesting();
+      CrumbsStore.recordLog(
         LogRecordEntry(
           level: 'SEVERE',
           levelValue: 1000,
@@ -1601,22 +1602,22 @@ void main() {
   // navigate adapter (Step 5)
   // ---------------------------------------------------------------------------
 
-  group('MagicDuskIntegration navigate adapter', () {
+  group('MagicTapirIntegration navigate adapter', () {
     test('install() registers a non-null navigate adapter', () {
-      expect(DuskPlugin.navigateAdapter, isNull);
+      expect(TapirPlugin.navigateAdapter, isNull);
 
-      MagicDuskIntegration.install();
+      MagicTapirIntegration.install();
 
-      expect(DuskPlugin.navigateAdapter, isNotNull);
+      expect(TapirPlugin.navigateAdapter, isNotNull);
     });
 
     test('resetForTesting() clears the navigate adapter', () {
-      MagicDuskIntegration.install();
-      expect(DuskPlugin.navigateAdapter, isNotNull);
+      MagicTapirIntegration.install();
+      expect(TapirPlugin.navigateAdapter, isNotNull);
 
-      MagicDuskIntegration.resetForTesting();
+      MagicTapirIntegration.resetForTesting();
 
-      expect(DuskPlugin.navigateAdapter, isNull);
+      expect(TapirPlugin.navigateAdapter, isNull);
     });
 
     testWidgets(
@@ -1632,9 +1633,9 @@ void main() {
         await tester.pumpAndSettle();
 
         // 2. Install the integration — this registers the adapter.
-        MagicDuskIntegration.install();
+        MagicTapirIntegration.install();
 
-        final adapter = DuskPlugin.navigateAdapter;
+        final adapter = TapirPlugin.navigateAdapter;
         expect(adapter, isNotNull);
 
         // 3. Invoke the adapter with a valid path.
@@ -1653,18 +1654,18 @@ void main() {
       'adapter returns false (or throws) when MagicRouter is not initialised',
       (tester) async {
         // No routes registered, no MaterialApp.router pumped: _router is null.
-        MagicDuskIntegration.install();
+        MagicTapirIntegration.install();
 
-        final adapter = DuskPlugin.navigateAdapter;
+        final adapter = TapirPlugin.navigateAdapter;
         expect(adapter, isNotNull);
 
-        // The adapter must not crash the caller (dusk swallows throws), but it
+        // The adapter must not crash the caller (tapir swallows throws), but it
         // must NOT return true when the router is not ready.
         bool? result;
         try {
           result = await adapter!('/anywhere');
         } on Object {
-          // Throw is acceptable per the DuskNavigateAdapter contract.
+          // Throw is acceptable per the TapirNavigateAdapter contract.
           result = null;
         }
 
@@ -1680,16 +1681,16 @@ void main() {
 
   group('magicRecentExceptionsEnricher', () {
     setUp(() {
-      TelescopeStore.resetForTesting();
+      CrumbsStore.resetForTesting();
     });
 
     tearDown(() {
-      TelescopeStore.resetForTesting();
+      CrumbsStore.resetForTesting();
     });
 
     testWidgets(
-      'returns null when the telescope exceptions buffer is empty (also covers '
-      'the telescope-absent fallback)',
+      'returns null when the crumbs exceptions buffer is empty (also covers '
+      'the crumbs-absent fallback)',
       (tester) async {
         await tester.pumpWidget(const MaterialApp(home: SizedBox()));
         final element = _findElement(tester, SizedBox);
@@ -1704,7 +1705,7 @@ void main() {
     testWidgets(
       'emits `magicRecentExceptions: Type at file.dart:line` for non-empty buffer',
       (tester) async {
-        TelescopeStore.recordException(
+        CrumbsStore.recordException(
           ExceptionRecord(
             exceptionType: 'HttpException',
             message: 'request failed',
@@ -1732,7 +1733,7 @@ void main() {
     testWidgets(
       'truncates to type plus first line of stackTrace only (drops deeper frames)',
       (tester) async {
-        TelescopeStore.recordException(
+        CrumbsStore.recordException(
           ExceptionRecord(
             exceptionType: 'FormatException',
             message: 'bad input',
@@ -1761,7 +1762,7 @@ void main() {
     testWidgets(
       'falls back to the type only when the stackTrace is null or unparseable',
       (tester) async {
-        TelescopeStore.recordException(
+        CrumbsStore.recordException(
           ExceptionRecord(
             exceptionType: 'StateError',
             message: 'no state',
@@ -1788,7 +1789,7 @@ void main() {
       tester,
     ) async {
       for (int i = 1; i <= 5; i++) {
-        TelescopeStore.recordException(
+        CrumbsStore.recordException(
           ExceptionRecord(
             exceptionType: 'E$i',
             message: 'msg$i',
@@ -1818,7 +1819,7 @@ void main() {
     testWidgets('does not retain the Element across calls (fresh-read)', (
       tester,
     ) async {
-      TelescopeStore.recordException(
+      CrumbsStore.recordException(
         ExceptionRecord(
           exceptionType: 'FirstError',
           message: 'first',
@@ -1836,8 +1837,8 @@ void main() {
       expect(first, contains('FirstError'));
 
       // Clear and re-record — second element must read the fresh buffer state.
-      TelescopeStore.resetForTesting();
-      TelescopeStore.recordException(
+      CrumbsStore.resetForTesting();
+      CrumbsStore.recordException(
         ExceptionRecord(
           exceptionType: 'SecondError',
           message: 'second',
@@ -1899,10 +1900,9 @@ class _StreamableFakeBroadcastManager extends BroadcastManager {
 
 class _StreamableFakeBroadcastDriver implements BroadcastDriver {
   _StreamableFakeBroadcastDriver({
-    required Stream<BroadcastConnectionState> stateStream,
-    required bool connected,
-  }) : _stateStream = stateStream,
-       _connected = connected;
+    required this._stateStream,
+    required this._connected,
+  });
 
   final Stream<BroadcastConnectionState> _stateStream;
   final bool _connected;

@@ -1,26 +1,28 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
-import 'package:fluttersdk_dusk/dusk.dart';
-import 'package:fluttersdk_telescope/telescope.dart';
+import 'package:tapir/tapir.dart';
+import 'package:crumbs/crumbs.dart';
 import 'package:magic/magic.dart';
+import 'package:magic_socket/magic_socket.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// Glues magic's primitives (MagicForm, MagicRouter, Gate, Auth, Echo) into
-/// the fluttersdk_dusk snapshot pipeline.
+/// the tapir snapshot pipeline.
 ///
 /// Host integration (the consumer gates with `!kReleaseMode`, so debug and
 /// profile both carry it and release tree-shakes it):
 /// ```dart
 /// if (!kReleaseMode) {
-///   DuskPlugin.install();
-///   MagicDuskIntegration.install();
+///   TapirPlugin.install();
+///   MagicTapirIntegration.install();
 /// }
 /// ```
 ///
-/// Adds fourteen enrichers to [DuskPlugin.enrichers] (in insertion order;
-/// later enrichers see the same Element, first-write-wins on overlapping
-/// keys per oracle finding #3 contract) and registers one navigate adapter
-/// via [DuskPlugin.registerNavigateAdapter] so `ext.dusk.navigate --route`
+/// Adds fourteen enrichers to [TapirPlugin.enrichers] (in insertion order;
+/// later enrichers see the same Element, and nothing deduplicates keys: two
+/// enrichers emitting the same key put both lines in the snapshot, so the
+/// keys below stay distinct) and registers one navigate adapter
+/// via [TapirPlugin.registerNavigateAdapter] so `ext.tapir.navigate --route`
 /// drives GoRouter through [MagicRouter] instead of falling back to the
 /// [SystemNavigator] broadcast:
 ///
@@ -52,38 +54,37 @@ import 'package:magic/magic.dart';
 ///     <ability>=<allowed|denied>,...` for up to 5 most recently checked
 ///     abilities. Null when no ability has been checked yet.
 /// 12. [magicRecentHttpEnricher] — `magicRecentHttp: GET /url 200 142ms,...`
-///     for up to 5 most recent HTTP records captured by telescope. URLs
-///     are truncated to 40 characters. Null when the telescope buffer is
-///     empty or the telescope-presence check fails.
+///     for up to 5 most recent HTTP records captured by crumbs. URLs
+///     are truncated to 40 characters. Null when the crumbs buffer is
+///     empty or the crumbs-presence check fails.
 /// 13. [magicRecentLogsEnricher] — `magicRecentLogs: [WARN] msg,[ERROR] msg`
 ///     for up to 3 most recent log records at or above WARNING level.
-///     Messages are truncated to 50 characters. Null when the telescope
-///     buffer is empty or the telescope-presence check fails.
+///     Messages are truncated to 50 characters. Null when the crumbs
+///     buffer is empty or the crumbs-presence check fails.
 /// 14. [magicRecentExceptionsEnricher] — `magicRecentExceptions:
 ///     HttpException at api.dart:142,...` for up to 3 most recent
 ///     exception records. Each entry surfaces the type plus the file:line
-///     extracted from the first stack frame. Null when the telescope
-///     buffer is empty or the telescope-presence check fails.
+///     extracted from the first stack frame. Null when the crumbs
+///     buffer is empty or the crumbs-presence check fails.
 ///
 /// All fourteen enrichers are synchronous, return null on miss, and never
-/// retain the [Element] across calls (oracle finding #3 contract, see
-/// [DuskSnapshotEnricher]).
-class MagicDuskIntegration {
-  MagicDuskIntegration._();
+/// retain the [Element] across calls (the [TapirSnapshotEnricher] contract).
+class MagicTapirIntegration {
+  MagicTapirIntegration._();
 
   /// Idempotent install. Safe to call multiple times within the same
-  /// isolate lifetime (matches [DuskPlugin.install] semantics).
+  /// isolate lifetime (matches [TapirPlugin.install] semantics).
   ///
   /// Insertion order is load-bearing: the two original enrichers keep
   /// their slot, the five Plan-Step-17 enrichers are appended after
   /// them, the two Step-1.1 enrichers (controllerFlags, routeParams)
   /// land at slots 7 and 8, the two Step-1.2 enrichers
   /// (echoConnection, gateResultsAll) land at slots 9 and 10, and the
-  /// three Step-1.3 telescope-bridge enrichers (recentHttp, recentLogs,
-  /// recentExceptions) land at slots 11, 12, 13 so any first-write-wins
-  /// overlap stays deterministic across versions. After enricher
+  /// three Step-1.3 crumbs-bridge enrichers (recentHttp, recentLogs,
+  /// recentExceptions) land at slots 11, 12, 13 so the order of the lines in
+  /// a snapshot stays deterministic across versions. After enricher
   /// registration, one navigate adapter is wired via
-  /// [DuskPlugin.registerNavigateAdapter] so `ext.dusk.navigate --route`
+  /// [TapirPlugin.registerNavigateAdapter] so `ext.tapir.navigate --route`
   /// drives [MagicRouter.instance.to] (path-based) instead of falling
   /// back to the [SystemNavigator] broadcast.
   static void install() {
@@ -91,30 +92,30 @@ class MagicDuskIntegration {
     _installed = true;
 
     // 1. Original enrichers (insertion slots 0 and 1 — stable).
-    DuskPlugin.enrichers.add(magicFormEnricher);
-    DuskPlugin.enrichers.add(magicNavigationEnricher);
+    TapirPlugin.enrichers.add(magicFormEnricher);
+    TapirPlugin.enrichers.add(magicNavigationEnricher);
 
     // 2. Plan-Step-17 enrichers (slots 2..6, added in declaration order).
-    DuskPlugin.enrichers.add(magicControllerEnricher);
-    DuskPlugin.enrichers.add(magicFormErrorsEnricher);
-    DuskPlugin.enrichers.add(magicGateResultEnricher);
-    DuskPlugin.enrichers.add(magicMiddlewareEnricher);
-    DuskPlugin.enrichers.add(magicAuthUserEnricher);
+    TapirPlugin.enrichers.add(magicControllerEnricher);
+    TapirPlugin.enrichers.add(magicFormErrorsEnricher);
+    TapirPlugin.enrichers.add(magicGateResultEnricher);
+    TapirPlugin.enrichers.add(magicMiddlewareEnricher);
+    TapirPlugin.enrichers.add(magicAuthUserEnricher);
 
     // 3. Step-1.1 enrichers (slots 7..8, added in declaration order).
-    DuskPlugin.enrichers.add(magicControllerFlagsEnricher);
-    DuskPlugin.enrichers.add(magicRouteParamsEnricher);
+    TapirPlugin.enrichers.add(magicControllerFlagsEnricher);
+    TapirPlugin.enrichers.add(magicRouteParamsEnricher);
 
     // 4. Step-1.2 enrichers (slots 9..10, added in declaration order).
-    DuskPlugin.enrichers.add(magicEchoConnectionEnricher);
-    DuskPlugin.enrichers.add(magicGateResultsAllEnricher);
+    TapirPlugin.enrichers.add(magicEchoConnectionEnricher);
+    TapirPlugin.enrichers.add(magicGateResultsAllEnricher);
 
-    // 5. Step-1.3 telescope-bridge enrichers (slots 11..13). Each enricher
-    //    wraps its [TelescopeStore] read in try/catch so a missing-telescope
+    // 5. Step-1.3 crumbs-bridge enrichers (slots 11..13). Each enricher
+    //    wraps its [CrumbsStore] read in try/catch so a missing-crumbs
     //    classpath collapses to a graceful null without bubbling up.
-    DuskPlugin.enrichers.add(magicRecentHttpEnricher);
-    DuskPlugin.enrichers.add(magicRecentLogsEnricher);
-    DuskPlugin.enrichers.add(magicRecentExceptionsEnricher);
+    TapirPlugin.enrichers.add(magicRecentHttpEnricher);
+    TapirPlugin.enrichers.add(magicRecentLogsEnricher);
+    TapirPlugin.enrichers.add(magicRecentExceptionsEnricher);
 
     // 6. Subscribe to the Echo connection-state stream when broadcasting is
     //    registered; keep the last emitted value in the module-private cache
@@ -125,15 +126,15 @@ class MagicDuskIntegration {
       );
     }
 
-    // 7. Register the navigate adapter so `ext.dusk.navigate --route <path>`
+    // 7. Register the navigate adapter so `ext.tapir.navigate --route <path>`
     //    drives GoRouter through MagicRouter instead of falling back to the
     //    SystemNavigator broadcast (which GoRouter does not listen to).
     //
     //    The adapter uses MagicRouter.instance.to(route) (path-based navigation,
-    //    NOT .toNamed) because the dusk `--route` argument is a URL path. A
+    //    NOT .toNamed) because the tapir `--route` argument is a URL path. A
     //    null router instance (not yet initialised) throws StateError; we catch
-    //    it and return false so dusk can fall back to the platform broadcast.
-    DuskPlugin.registerNavigateAdapter((String route) async {
+    //    it and return false so tapir can fall back to the platform broadcast.
+    TapirPlugin.registerNavigateAdapter((String route) async {
       try {
         MagicRouter.instance.to(route);
         return true;
@@ -144,25 +145,25 @@ class MagicDuskIntegration {
   }
 
   /// Test-only reset. Drops all fourteen enrichers from
-  /// [DuskPlugin.enrichers], clears the navigate adapter, cancels the Echo
+  /// [TapirPlugin.enrichers], clears the navigate adapter, cancels the Echo
   /// connection-state subscription, and clears the idempotency guard.
   @visibleForTesting
   static void resetForTesting() {
-    DuskPlugin.enrichers.remove(magicFormEnricher);
-    DuskPlugin.enrichers.remove(magicNavigationEnricher);
-    DuskPlugin.enrichers.remove(magicControllerEnricher);
-    DuskPlugin.enrichers.remove(magicFormErrorsEnricher);
-    DuskPlugin.enrichers.remove(magicGateResultEnricher);
-    DuskPlugin.enrichers.remove(magicMiddlewareEnricher);
-    DuskPlugin.enrichers.remove(magicAuthUserEnricher);
-    DuskPlugin.enrichers.remove(magicControllerFlagsEnricher);
-    DuskPlugin.enrichers.remove(magicRouteParamsEnricher);
-    DuskPlugin.enrichers.remove(magicEchoConnectionEnricher);
-    DuskPlugin.enrichers.remove(magicGateResultsAllEnricher);
-    DuskPlugin.enrichers.remove(magicRecentHttpEnricher);
-    DuskPlugin.enrichers.remove(magicRecentLogsEnricher);
-    DuskPlugin.enrichers.remove(magicRecentExceptionsEnricher);
-    DuskPlugin.registerNavigateAdapter(null);
+    TapirPlugin.enrichers.remove(magicFormEnricher);
+    TapirPlugin.enrichers.remove(magicNavigationEnricher);
+    TapirPlugin.enrichers.remove(magicControllerEnricher);
+    TapirPlugin.enrichers.remove(magicFormErrorsEnricher);
+    TapirPlugin.enrichers.remove(magicGateResultEnricher);
+    TapirPlugin.enrichers.remove(magicMiddlewareEnricher);
+    TapirPlugin.enrichers.remove(magicAuthUserEnricher);
+    TapirPlugin.enrichers.remove(magicControllerFlagsEnricher);
+    TapirPlugin.enrichers.remove(magicRouteParamsEnricher);
+    TapirPlugin.enrichers.remove(magicEchoConnectionEnricher);
+    TapirPlugin.enrichers.remove(magicGateResultsAllEnricher);
+    TapirPlugin.enrichers.remove(magicRecentHttpEnricher);
+    TapirPlugin.enrichers.remove(magicRecentLogsEnricher);
+    TapirPlugin.enrichers.remove(magicRecentExceptionsEnricher);
+    TapirPlugin.registerNavigateAdapter(null);
     _echoSubscription?.cancel();
     _echoSubscription = null;
     _lastEchoState = null;
@@ -405,9 +406,9 @@ String? magicRouteParamsEnricher(Element element, RefRegistry refs) {
 /// Enricher: emits `magicEchoConnection: connected|reconnecting|disconnected`
 /// for the current broadcast connection state.
 ///
-/// The state is read from a module-private cache ([MagicDuskIntegration]
+/// The state is read from a module-private cache ([MagicTapirIntegration]
 /// static field `_lastEchoState`) that is updated by a [StreamSubscription]
-/// installed in [MagicDuskIntegration.install]. When no stream event has
+/// installed in [MagicTapirIntegration.install]. When no stream event has
 /// fired yet, falls back to [BroadcastDriver.isConnected] to derive the
 /// initial state without spinning up a new subscription.
 ///
@@ -417,7 +418,7 @@ String? magicEchoConnectionEnricher(Element element, RefRegistry refs) {
   if (!Magic.bound('broadcasting')) return null;
 
   // 1. Prefer the stream-cached state (updated in install()).
-  final String? cached = MagicDuskIntegration._lastEchoState;
+  final String? cached = MagicTapirIntegration._lastEchoState;
   if (cached != null) return 'magicEchoConnection: $cached';
 
   // 2. Fall back to the sync isConnected heuristic when no stream event
@@ -465,15 +466,15 @@ String? magicGateResultsAllEnricher(Element element, RefRegistry refs) {
 }
 
 /// Enricher: emits `magicRecentHttp: <METHOD> <url> <status> <durationMs>ms,...`
-/// for up to 5 most recent records in [TelescopeStore.recentHttp].
+/// for up to 5 most recent records in [CrumbsStore.recentHttp].
 ///
 /// Each entry surfaces `method`, the (optionally truncated) `url`,
 /// `statusCode`, and `durationMs`. URLs longer than 40 characters are
 /// truncated to a 37-character prefix followed by `...` so the snapshot
 /// stays bounded.
 ///
-/// Returns null when the telescope buffer is empty or the telescope
-/// classpath is not present — the [TelescopeStore.recentHttp] call is
+/// Returns null when the crumbs buffer is empty or the crumbs
+/// classpath is not present — the [CrumbsStore.recentHttp] call is
 /// wrapped in try/catch so a missing-dep classpath collapses to a
 /// graceful null instead of bubbling up.
 String? magicRecentHttpEnricher(Element element, RefRegistry refs) {
@@ -492,15 +493,15 @@ String? magicRecentHttpEnricher(Element element, RefRegistry refs) {
 
 /// Enricher: emits `magicRecentLogs: [<shortLevel>] <message>,...` for up
 /// to 3 most recent log records at or above WARNING level in
-/// [TelescopeStore.recentLogs].
+/// [CrumbsStore.recentLogs].
 ///
 /// Level names are mapped to short labels for compactness:
 /// WARNING → WARN, SEVERE → ERROR, everything else surfaces its
 /// upper-cased level name as-is. Messages longer than 50 characters are
 /// truncated to a 47-character prefix followed by `...`.
 ///
-/// Returns null when the telescope buffer is empty (or no entries meet
-/// the WARNING threshold) or the telescope classpath is not present.
+/// Returns null when the crumbs buffer is empty (or no entries meet
+/// the WARNING threshold) or the crumbs classpath is not present.
 String? magicRecentLogsEnricher(Element element, RefRegistry refs) {
   final List<LogRecordEntry>? records = _safeReadRecentLogs();
   if (records == null || records.isEmpty) return null;
@@ -515,7 +516,7 @@ String? magicRecentLogsEnricher(Element element, RefRegistry refs) {
 }
 
 /// Enricher: emits `magicRecentExceptions: <Type> at <file.dart>:<line>,...`
-/// for up to 3 most recent records in [TelescopeStore.recentExceptions].
+/// for up to 3 most recent records in [CrumbsStore.recentExceptions].
 ///
 /// Each entry is the [ExceptionRecord.exceptionType] followed by the
 /// file:line extracted from the first stack-trace frame. When the
@@ -523,7 +524,7 @@ String? magicRecentLogsEnricher(Element element, RefRegistry refs) {
 /// it, the entry collapses to the type alone (no trailing ` at ...`
 /// suffix).
 ///
-/// Returns null when the telescope buffer is empty or the telescope
+/// Returns null when the crumbs buffer is empty or the crumbs
 /// classpath is not present.
 String? magicRecentExceptionsEnricher(Element element, RefRegistry refs) {
   final List<ExceptionRecord>? records = _safeReadRecentExceptions();
@@ -740,21 +741,21 @@ String _connectionStateName(BroadcastConnectionState state) {
   };
 }
 
-/// Wrap [TelescopeStore.recentHttp] in a presence-safe try/catch.
+/// Wrap [CrumbsStore.recentHttp] in a presence-safe try/catch.
 ///
-/// Returns null when the telescope classpath is missing or the static
+/// Returns null when the crumbs classpath is missing or the static
 /// call throws for any reason — the enricher then coalesces to a
-/// graceful null instead of bubbling the error up into Dusk's enricher
+/// graceful null instead of bubbling the error up into Tapir's enricher
 /// loop.
 List<HttpRequestRecord>? _safeReadRecentHttp() {
   try {
-    return TelescopeStore.recentHttp(limit: 5);
+    return CrumbsStore.recentHttp(limit: 5);
   } on Object {
     return null;
   }
 }
 
-/// Wrap [TelescopeStore.recentLogs] in a presence-safe try/catch.
+/// Wrap [CrumbsStore.recentLogs] in a presence-safe try/catch.
 ///
 /// Filters at the WARNING threshold so info/fine noise is dropped before
 /// it reaches the snapshot. See [_safeReadRecentHttp] for the null-on-miss
@@ -762,19 +763,19 @@ List<HttpRequestRecord>? _safeReadRecentHttp() {
 List<LogRecordEntry>? _safeReadRecentLogs() {
   try {
     // 'WARNING' matches the `package:logging` Level.WARNING.name verbatim;
-    // TelescopeStore._meetsLevel lowercases both sides before comparing.
-    return TelescopeStore.recentLogs(limit: 3, minLevel: 'WARNING');
+    // CrumbsStore._meetsLevel lowercases both sides before comparing.
+    return CrumbsStore.recentLogs(limit: 3, minLevel: 'WARNING');
   } on Object {
     return null;
   }
 }
 
-/// Wrap [TelescopeStore.recentExceptions] in a presence-safe try/catch.
+/// Wrap [CrumbsStore.recentExceptions] in a presence-safe try/catch.
 ///
 /// See [_safeReadRecentHttp] for the null-on-miss contract.
 List<ExceptionRecord>? _safeReadRecentExceptions() {
   try {
-    return TelescopeStore.recentExceptions(limit: 3);
+    return CrumbsStore.recentExceptions(limit: 3);
   } on Object {
     return null;
   }

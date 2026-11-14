@@ -1,6 +1,5 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:fluttersdk_dusk/dusk.dart'
+import 'package:tapir/tapir.dart'
     show
         PerfMode,
         buildPerfReport,
@@ -8,12 +7,13 @@ import 'package:fluttersdk_dusk/dusk.dart'
         perfExtrasReader,
         perfSessionBeginHook,
         perfSessionEndHook;
-import 'package:fluttersdk_telescope/telescope.dart';
+import 'package:crumbs/crumbs.dart';
 import 'package:magic/magic.dart';
 import 'package:magic_devtools/magic_devtools.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// Tests for [PerfInsightRules], the wind and magic rules `perf_end` runs
-/// through dusk's contributor seam.
+/// through tapir's contributor seam.
 ///
 /// Every rule is pinned twice, once just past its threshold and once just
 /// short of it: a rule that only has a firing case would pass with no
@@ -21,7 +21,7 @@ import 'package:magic_devtools/magic_devtools.dart';
 
 class _StormController extends MagicController {}
 
-/// A report as dusk hands it to a contributor, cut to the keys the rules read.
+/// A report as tapir hands it to a contributor, cut to the keys the rules read.
 Map<String, Object?> _report({
   int painted = 10,
   double? durationMs = 1000,
@@ -347,13 +347,13 @@ void main() {
     });
   });
 
-  group('conformance through dusk buildPerfReport', () {
+  group('conformance through tapir buildPerfReport', () {
     setUp(() {
       MagicApp.reset();
       Magic.flush();
       MagicRouter.reset();
       MagicPerfIntegration.resetForTesting();
-      TelescopeStore.resetForTesting();
+      CrumbsStore.resetForTesting();
       WindParser.clearCache();
       WindPerfCounters.reset();
     });
@@ -361,7 +361,7 @@ void main() {
     tearDown(() {
       MagicPerfIntegration.resetForTesting();
       MagicRouter.reset();
-      TelescopeStore.resetForTesting();
+      CrumbsStore.resetForTesting();
       WindPerfCounters.enabled = false;
       WindPerfCounters.reset();
     });
@@ -392,9 +392,9 @@ void main() {
         controller.refreshUI();
       }
 
-      // 3. Two painted frames, as telescope's frame watcher records them.
-      TelescopeStore.recordFramePerf(_frame(1));
-      TelescopeStore.recordFramePerf(_frame(2));
+      // 3. Two painted frames, as crumbs' frame watcher records them.
+      CrumbsStore.recordFramePerf(_frame(1));
+      CrumbsStore.recordFramePerf(_frame(2));
 
       final Map<String, Object?> report = buildPerfReport(
         framePerfReader(),

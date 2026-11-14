@@ -512,7 +512,7 @@ class _CacheListener extends MagicListener<MagicEvent> {
 }
 
 // ---------------------------------------------------------------------------
-// Event watcher ; subscribes to the curated alpha-2 magic event set.
+// Event watcher: subscribes to a curated set of magic events.
 // ---------------------------------------------------------------------------
 
 /// [CrumbsWatcher] for magic's app-event surface (auth, db, gate
@@ -520,9 +520,9 @@ class _CacheListener extends MagicListener<MagicEvent> {
 /// [MagicModelWatcher]) and the gate-result event (owned by
 /// [MagicGateWatcher]) to keep each record on a single channel.
 ///
-/// ALPHA-2 SCOPE: payload is the empty map for every event type. Per-event
-/// field-map extraction is deferred to a follow-up alpha so the wire
-/// shape of [EventRecord] can stabilise first.
+/// The payload is the empty map for every event type: the record carries the
+/// event name and the interaction link, and per-event fields are not
+/// extracted.
 class MagicEventWatcher implements CrumbsWatcher {
   /// Per-instance guard. Second [install] call on the same watcher is a
   /// no-op ; [EventDispatcher.register] is additive (it append-and-runs
@@ -586,7 +586,7 @@ class MagicEventWatcher implements CrumbsWatcher {
 
 /// Generic event-to-record adapter for [MagicEventWatcher]. Captured at
 /// construction with the wire-name of the event type; payload is the
-/// empty map (alpha-2 scope).
+/// empty map.
 class _EventToRecord<T extends MagicEvent> extends MagicListener<T> {
   _EventToRecord(this.eventTypeName);
 
@@ -711,8 +711,8 @@ class MagicQueryWatcher implements CrumbsWatcher {
 }
 
 /// Translates [QueryExecuted] into a [QueryRecord] and pushes it to
-/// the store. Bindings are pass-through (List<dynamic> structurally fits
-/// QueryRecord's List<Object?> shape; jsonEncode handles primitives).
+/// the store. Bindings are pass-through (`List<dynamic>` structurally fits
+/// QueryRecord's `List<Object?>` shape; jsonEncode handles primitives).
 class _QueryExecutedListener extends MagicListener<QueryExecuted> {
   @override
   Future<void> handle(QueryExecuted event) async {

@@ -36,7 +36,7 @@ const bool kPreviewEnabled = bool.fromEnvironment(
 /// ```
 ///
 /// Entries are held in a function-scoped static list (never a top-level const
-/// holding widget refs — the dart-lang/sdk#33920 foot-gun), assigned only from
+/// holding widget refs: the dart-lang/sdk#33920 foot-gun), assigned only from
 /// [register], so the release-mode tree-shaker can prove them unreachable once
 /// [registerRoutes] folds dead behind [kReleaseMode] + [kPreviewEnabled].
 final class MagicPreview {
@@ -67,11 +67,12 @@ final class MagicPreview {
   ///
   /// [MagicRouter] locks its route table the first time `routerConfig` is
   /// accessed (`MagicRouter.routerConfig` builds the GoRouter and sets
-  /// `_isBuilt`, after which `addRoute` throws `StateError`). The consumer MUST
-  /// therefore call [registerRoutes] inside a provider `boot()` — which runs
-  /// during the Magic bootstrap lifecycle, BEFORE `MaterialApp` reads
-  /// `MagicRouter.instance.routerConfig` — otherwise the routes register too
-  /// late and `/preview` silently never appears.
+  /// `_isBuilt`, after which `addRoute` throws `StateError`). Call
+  /// [registerRoutes] inside a provider `boot()`: it runs during the Magic
+  /// bootstrap lifecycle, before `MaterialApp` reads
+  /// `MagicRouter.instance.routerConfig`. A call after that first read throws
+  /// the router's `StateError` ("Cannot add routes after the router has been
+  /// built") from the first `MagicRoute.page` below.
   ///
   /// ## Release boundary
   ///
@@ -86,7 +87,7 @@ final class MagicPreview {
     if (!kPreviewEnabled) return;
 
     // 2. Snapshot the entries inside this function body (never a top-level
-    //    const list — sdk#33920) so the catalog widget receives them by value.
+    //    const list, see sdk#33920) so the catalog widget receives them by value.
     final List<PreviewEntry> entries = _entries;
 
     // 3. Two plain pages render the catalog DIRECTLY (no persistent shell): the

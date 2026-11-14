@@ -386,7 +386,7 @@ class MagicPerfIntegration {
         interactionId: r.interactionId,
         linkedBy: r.linkedBy,
       ),
-    for (final MagicModelRecord r in CrumbsStore.recentModels())
+    for (final ModelRecord r in CrumbsStore.recentModels())
       _row(
         kind: 'instant',
         track: 'models',
@@ -396,7 +396,7 @@ class MagicPerfIntegration {
         linkedBy: r.linkedBy,
         args: <String, Object?>{'key': r.modelKey},
       ),
-    for (final MagicCacheRecord r in CrumbsStore.recentCaches())
+    for (final CacheRecord r in CrumbsStore.recentCaches())
       _row(
         kind: 'instant',
         track: 'cache',

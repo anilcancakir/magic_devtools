@@ -408,7 +408,7 @@ void main() {
       active.open = false;
       await EventDispatcher.instance.dispatch(AuthLogout(null));
 
-      final MagicCacheRecord cache = CrumbsStore.recentCaches().single;
+      final CacheRecord cache = CrumbsStore.recentCaches().single;
       expect(cache.interactionId, 'i2');
       expect(cache.linkedBy, 'frame');
       final EventRecord event = CrumbsStore.recentEvents().single;

@@ -22,10 +22,10 @@ import 'perf_integration.dart';
 ///    [MagicNetworkInterceptor] that feeds [CrumbsStore.recordHttp]
 ///    (oracle's reuse-pattern decision kept inside magic).
 /// 2. [MagicModelWatcher] ; subscribes to `ModelCreated`, `ModelSaved`,
-///    `ModelDeleted` and feeds [CrumbsStore.recordMagicModel].
+///    `ModelDeleted` and feeds [CrumbsStore.recordModel].
 /// 3. [MagicCacheWatcher] ; subscribes to `CacheHit`, `CacheMiss`,
 ///    `CachePut`, `CacheForget` and `CacheFlush` and feeds
-///    [CrumbsStore.recordMagicCache].
+///    [CrumbsStore.recordCache].
 /// 4. [MagicEventWatcher] ; subscribes to the curated set of magic auth /
 ///    db / gate-definition events and feeds [CrumbsStore.recordEvent] with
 ///    an empty payload: the record carries the event type only.
@@ -353,7 +353,7 @@ String? _truncate(Object? body) {
 // ---------------------------------------------------------------------------
 
 /// [CrumbsWatcher] that subscribes to `ModelCreated`, `ModelSaved`,
-/// `ModelDeleted` and feeds [CrumbsStore.recordMagicModel].
+/// `ModelDeleted` and feeds [CrumbsStore.recordModel].
 ///
 /// Registers three listener factories with [EventDispatcher] ; magic's
 /// dispatcher invokes the factory once per dispatch and calls the
@@ -388,13 +388,13 @@ class MagicModelWatcher implements CrumbsWatcher {
   }
 }
 
-/// Translates a [ModelEvent] into a [MagicModelRecord] and pushes it to
+/// Translates a [ModelEvent] into a [ModelRecord] and pushes it to
 /// the store. Bound to a single event tag ('created'/'saved'/'deleted')
 /// at construction.
 class _ModelLifecycleListener extends MagicListener<ModelEvent> {
   _ModelLifecycleListener(this.eventTag);
 
-  /// 'created' | 'saved' | 'deleted' ; matches [MagicModelRecord.event].
+  /// 'created' | 'saved' | 'deleted' ; matches [ModelRecord.event].
   final String eventTag;
 
   @override
@@ -403,8 +403,8 @@ class _ModelLifecycleListener extends MagicListener<ModelEvent> {
     final dynamic key = model.id;
     final ({String? interactionId, String linkedBy}) link =
         MagicPerfIntegration.interactionLink();
-    CrumbsStore.recordMagicModel(
-      MagicModelRecord(
+    CrumbsStore.recordModel(
+      ModelRecord(
         modelClass: model.runtimeType.toString(),
         event: eventTag,
         modelKey: key == null ? '' : key.toString(),
@@ -425,7 +425,7 @@ class _ModelLifecycleListener extends MagicListener<ModelEvent> {
 ///
 /// Subscribes to the five cache events magic's `Cache` facade dispatches
 /// (`CacheHit`, `CacheMiss`, `CachePut`, `CacheForget`, `CacheFlush`) and
-/// feeds [CrumbsStore.recordMagicCache], identical to [MagicModelWatcher].
+/// feeds [CrumbsStore.recordCache], identical to [MagicModelWatcher].
 class MagicCacheWatcher implements CrumbsWatcher {
   bool _installed = false;
 
@@ -438,7 +438,7 @@ class MagicCacheWatcher implements CrumbsWatcher {
     _installed = true;
 
     // Subscribe to the 5 cache events emitted by [CacheManager.get/put/
-    // forget/flush]; each listener records a [MagicCacheRecord] with the
+    // forget/flush]; each listener records a [CacheRecord] with the
     // canonical operation tag.
     EventDispatcher.instance.register(CacheHit, <MagicListener Function()>[
       () => _CacheListener('hit'),
@@ -465,7 +465,7 @@ class MagicCacheWatcher implements CrumbsWatcher {
   }
 }
 
-/// Translates the 5 cache events into [MagicCacheRecord] entries. Bound to a
+/// Translates the 5 cache events into [CacheRecord] entries. Bound to a
 /// single op tag at construction; the watcher registers one listener per
 /// event type.
 class _CacheListener extends MagicListener<MagicEvent> {
@@ -493,8 +493,8 @@ class _CacheListener extends MagicListener<MagicEvent> {
     }
     final ({String? interactionId, String linkedBy}) link =
         MagicPerfIntegration.interactionLink();
-    CrumbsStore.recordMagicCache(
-      MagicCacheRecord(
+    CrumbsStore.recordCache(
+      CacheRecord(
         operation: op,
         key: key,
         time: DateTime.now(),

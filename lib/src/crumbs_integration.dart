@@ -1,6 +1,11 @@
 import 'package:flutter/foundation.dart';
 import 'package:tapir/tapir.dart'
-    show pendingHttpCountReader, recentLogsReader, recentExceptionsReader;
+    show
+        ConsoleRequest,
+        ExceptionsRequest,
+        pendingHttpCountReader,
+        recentLogsReader,
+        recentExceptionsReader;
 import 'package:crumbs/crumbs.dart';
 import 'package:magic/magic.dart';
 
@@ -72,8 +77,8 @@ class MagicCrumbsIntegration {
     // Bridge tapir's `console` + `exceptions` tools to crumbs' recent
     // ring-buffer accessors. Project crumbs record shapes into the
     // tapir handler envelope (logger/type/stackHead key remap).
-    recentLogsReader = ({int limit = 50, String? minLevel}) =>
-        CrumbsStore.recentLogs(limit: limit, minLevel: minLevel)
+    recentLogsReader = (ConsoleRequest request) =>
+        CrumbsStore.recentLogs(limit: request.limit, minLevel: request.minLevel)
             .map(
               (r) => <String, dynamic>{
                 'level': r.level,
@@ -84,8 +89,8 @@ class MagicCrumbsIntegration {
               },
             )
             .toList();
-    recentExceptionsReader = ({int limit = 20}) =>
-        CrumbsStore.recentExceptions(limit: limit)
+    recentExceptionsReader = (ExceptionsRequest request) =>
+        CrumbsStore.recentExceptions(limit: request.limit)
             .map(
               (r) => <String, dynamic>{
                 'type': r.exceptionType,
@@ -118,8 +123,8 @@ class MagicCrumbsIntegration {
   static void resetForTesting() {
     _installed = false;
     pendingHttpCountReader = () => 0;
-    recentLogsReader = ({int limit = 50, String? minLevel}) => const [];
-    recentExceptionsReader = ({int limit = 20}) => const [];
+    recentLogsReader = (ConsoleRequest request) => const [];
+    recentExceptionsReader = (ExceptionsRequest request) => const [];
   }
 
   static bool _installed = false;

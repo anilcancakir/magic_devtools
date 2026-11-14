@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tapir/src/tapir_plugin.dart' show tapirInstallCount;
 import 'package:tapir/tapir.dart';
 import 'package:crumbs/crumbs.dart';
 import 'package:magic/magic.dart';
@@ -38,7 +39,7 @@ void main() {
     test('boots both tool plugins', () {
       MagicDevtools.installPre();
 
-      expect(TapirPlugin.installCount, greaterThan(0));
+      expect(tapirInstallCount, greaterThan(0));
       expect(CrumbsPlugin.installCount, greaterThan(0));
     });
 

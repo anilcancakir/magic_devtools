@@ -26,43 +26,44 @@ import 'package:material_ui/material_ui.dart';
 /// drives GoRouter through [MagicRouter] instead of falling back to the
 /// [SystemNavigator] broadcast:
 ///
-/// 1. [magicFormEnricher] — `magicFormField: <name>` for elements backed
+/// 1. [magicFormEnricher]: `magicFormField: <name>` for elements backed
 ///    by a [MagicFormData] text controller.
-/// 2. [magicNavigationEnricher] — `magicRoute: <currentLocation>` for
+/// 2. [magicNavigationEnricher]: `magicRoute: <currentLocation>` for
 ///    every element when the router has resolved a route.
-/// 3. [magicControllerEnricher] — `magicControllerState: <Class>.<status>`
+/// 3. [magicControllerEnricher]: `magicControllerState: <Class>.<status>`
 ///    for the first registered [MagicStateMixin] controller.
-/// 4. [magicFormErrorsEnricher] — `magicFormErrors: <field>="<text>",...`
+/// 4. [magicFormErrorsEnricher]: `magicFormErrors: <field>="<text>",...`
 ///    for elements under a [MagicForm] whose controller carries server-side
 ///    [ValidatesRequests] errors matching the form's fields. Per-field
 ///    error text is quoted and truncated to 80 chars (...-suffixed).
-/// 5. [magicGateResultEnricher] — `magicGateResult: <ability>.<allowed|denied>`
+/// 5. [magicGateResultEnricher]: `magicGateResult: <ability>.<allowed|denied>`
 ///    for the most recently cached [GateResult] in [Gate.manager].
-/// 6. [magicMiddlewareEnricher] — `magicMiddleware: <name1,name2>` for
+/// 6. [magicMiddlewareEnricher]: `magicMiddleware: <name1,name2>` for
 ///    the active route's middlewares via [MagicRouter.currentRoute].
-/// 7. [magicAuthUserEnricher] — `magicAuthUser: <id>[:<displayName>]` for
+/// 7. [magicAuthUserEnricher]: `magicAuthUser: <id>[:<displayName>]` for
 ///    the authenticated user surfaced by [Auth.user].
-/// 8. [magicControllerFlagsEnricher] — `magicControllerFlags:
-///    <Class>.isLoading=<bool>,isSuccess=<bool>,isError=<bool>,isEmpty=<bool>`
+/// 8. [magicControllerFlagsEnricher]:
+///    `magicControllerFlags: <Class>.isLoading=<bool>,isSuccess=<bool>,isError=<bool>,isEmpty=<bool>`
 ///    for the first registered [MagicStateMixin] controller.
-/// 9. [magicRouteParamsEnricher] — `magicRouteParams: <k>=<v>,...` for the
+/// 9. [magicRouteParamsEnricher]: `magicRouteParams: <k>=<v>,...` for the
 ///    active route's path + query parameters (path params first).
-/// 10. [magicEchoConnectionEnricher] — `magicEchoConnection:
-///     connected|reconnecting|disconnected` for the current broadcast
-///     connection state. Null when the broadcasting provider is not registered.
-/// 11. [magicGateResultsAllEnricher] — `magicGateResultsAll:
-///     <ability>=<allowed|denied>,...` for up to 5 most recently checked
-///     abilities. Null when no ability has been checked yet.
-/// 12. [magicRecentHttpEnricher] — `magicRecentHttp: GET /url 200 142ms,...`
+/// 10. [magicEchoConnectionEnricher]:
+///     `magicEchoConnection: connected|reconnecting|disconnected` for the
+///     current broadcast connection state. Null when the broadcasting
+///     provider is not registered.
+/// 11. [magicGateResultsAllEnricher]:
+///     `magicGateResultsAll: <ability>=<allowed|denied>,...` for up to 5 most
+///     recently checked abilities. Null when no ability has been checked yet.
+/// 12. [magicRecentHttpEnricher]: `magicRecentHttp: GET /url 200 142ms,...`
 ///     for up to 5 most recent HTTP records captured by crumbs. URLs
 ///     are truncated to 40 characters. Null when the crumbs buffer is
 ///     empty or the crumbs-presence check fails.
-/// 13. [magicRecentLogsEnricher] — `magicRecentLogs: [WARN] msg,[ERROR] msg`
+/// 13. [magicRecentLogsEnricher]: `magicRecentLogs: [WARN] msg,[ERROR] msg`
 ///     for up to 3 most recent log records at or above WARNING level.
 ///     Messages are truncated to 50 characters. Null when the crumbs
 ///     buffer is empty or the crumbs-presence check fails.
-/// 14. [magicRecentExceptionsEnricher] — `magicRecentExceptions:
-///     HttpException at api.dart:142,...` for up to 3 most recent
+/// 14. [magicRecentExceptionsEnricher]:
+///     `magicRecentExceptions: HttpException at api.dart:142,...` for up to 3 most recent
 ///     exception records. Each entry surfaces the type plus the file:line
 ///     extracted from the first stack frame. Null when the crumbs
 ///     buffer is empty or the crumbs-presence check fails.
@@ -91,7 +92,7 @@ class MagicTapirIntegration {
     if (_installed) return;
     _installed = true;
 
-    // 1. Original enrichers (insertion slots 0 and 1 — stable).
+    // 1. Original enrichers (insertion slots 0 and 1, stable).
     TapirPlugin.enrichers.add(magicFormEnricher);
     TapirPlugin.enrichers.add(magicNavigationEnricher);
 
@@ -176,7 +177,7 @@ class MagicTapirIntegration {
 
   static bool _installed = false;
 
-  // Module-private Echo stream state — updated by the subscription installed
+  // Module-private Echo stream state, updated by the subscription installed
   // in [install] and cleared by [resetForTesting].
   static StreamSubscription<BroadcastConnectionState>? _echoSubscription;
   static String? _lastEchoState;
@@ -262,7 +263,7 @@ String? magicControllerEnricher(Element element, RefRegistry refs) {
 /// messages collapse to their first 77 characters followed by `...`.
 /// Insertion order from `validationErrors` is preserved.
 String? magicFormErrorsEnricher(Element element, RefRegistry refs) {
-  // 1. Walk ancestors for a MagicForm — same pattern as magicFormEnricher.
+  // 1. Walk ancestors for a MagicForm (same pattern as magicFormEnricher).
   final _MagicFormBinding? binding = _findAncestorMagicFormBinding(element);
   if (binding == null) return null;
 
@@ -356,8 +357,8 @@ String? magicAuthUserEnricher(Element element, RefRegistry refs) {
   return 'magicAuthUser: $id:$displayName';
 }
 
-/// Enricher: emits `magicControllerFlags:
-/// <Class>.isLoading=<bool>,isSuccess=<bool>,isError=<bool>,isEmpty=<bool>`
+/// Enricher: emits
+/// `magicControllerFlags: <Class>.isLoading=<bool>,isSuccess=<bool>,isError=<bool>,isEmpty=<bool>`
 /// for the first registered [MagicStateMixin] controller in
 /// [Magic.controllers].
 ///
@@ -432,7 +433,7 @@ String? magicEchoConnectionEnricher(Element element, RefRegistry refs) {
 /// for up to 5 of the most recently checked Gate abilities.
 ///
 /// Reads [Gate.manager.abilities] to obtain the set of defined abilities,
-/// then calls [GateManager.lastResult] per ability — a read-only cache
+/// then calls [GateManager.lastResult] per ability: a read-only cache
 /// lookup that never calls the ability callback. Abilities with no cached
 /// result (never checked) are skipped. The emitted list is ordered by
 /// [GateResult.checkedAt] descending so the most recent decisions appear
@@ -441,7 +442,7 @@ String? magicEchoConnectionEnricher(Element element, RefRegistry refs) {
 /// Returns null when no ability has a cached result (no gate checks have
 /// run since the last [Gate.manager.flush]).
 ///
-/// Contract: NO new [Gate.allows] calls are made — this enricher is
+/// Contract: no new [Gate.allows] calls are made; this enricher is
 /// read-only with zero side-effects.
 String? magicGateResultsAllEnricher(Element element, RefRegistry refs) {
   // 1. Collect all abilities that have a cached result.
@@ -474,7 +475,7 @@ String? magicGateResultsAllEnricher(Element element, RefRegistry refs) {
 /// stays bounded.
 ///
 /// Returns null when the crumbs buffer is empty or the crumbs
-/// classpath is not present — the [CrumbsStore.recentHttp] call is
+/// classpath is not present: the [CrumbsStore.recentHttp] call is
 /// wrapped in try/catch so a missing-dep classpath collapses to a
 /// graceful null instead of bubbling up.
 String? magicRecentHttpEnricher(Element element, RefRegistry refs) {
@@ -548,7 +549,7 @@ String? magicRecentExceptionsEnricher(Element element, RefRegistry refs) {
 /// Walk [element] and its descendants looking for an [EditableText] widget.
 ///
 /// Returns the controller of the first one found, or null. Walks at most
-/// one Element subtree per call — caller-bound scope, no retention.
+/// one Element subtree per call (caller-bound scope, no retention).
 TextEditingController? _findEditableController(Element element) {
   TextEditingController? found;
 
@@ -594,18 +595,18 @@ MagicFormData? _findAncestorFormData(Element element) {
 /// not catch the AssertionError that MagicFormData would throw in debug:
 /// the `fieldNames` set is the union of text and value fields, so we
 /// explicitly guard the lookup with a `try`/`catch` that returns the
-/// sentinel — identity-compare in the caller will be false.
+/// sentinel, so the identity compare in the caller is false.
 TextEditingController _tryReadText(MagicFormData formData, String name) {
   try {
     return formData[name];
   } on Object {
-    // Non-text field — return a per-call sentinel so identical() returns
+    // Non-text field: return a per-call sentinel so identical() returns
     // false in the caller's compare loop.
     return _sentinel;
   }
 }
 
-/// Stable sentinel — distinct from any controller a host app could pass
+/// Stable sentinel, distinct from any controller a host app could pass
 /// to MagicFormData (TextEditingController.new constructs a fresh one).
 final TextEditingController _sentinel = TextEditingController();
 
@@ -744,7 +745,7 @@ String _connectionStateName(BroadcastConnectionState state) {
 /// Wrap [CrumbsStore.recentHttp] in a presence-safe try/catch.
 ///
 /// Returns null when the crumbs classpath is missing or the static
-/// call throws for any reason — the enricher then coalesces to a
+/// call throws for any reason; the enricher then coalesces to a
 /// graceful null instead of bubbling the error up into Tapir's enricher
 /// loop.
 List<HttpRequestRecord>? _safeReadRecentHttp() {

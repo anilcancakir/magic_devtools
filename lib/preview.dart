@@ -7,9 +7,10 @@
 /// `bool.fromEnvironment('PREVIEW_ENABLED')` and tree-shaken from release
 /// builds.
 ///
-/// Wiring (in the consumer's `RouteServiceProvider.boot()`, which runs BEFORE
-/// `MagicRouter.instance.routerConfig` is first accessed — the router locks its
-/// route table on that first access):
+/// Wiring (in the consumer's `RouteServiceProvider.boot()`, which runs before
+/// `MagicRouter.instance.routerConfig` is first accessed; the router locks its
+/// route table on that first access and a later registration throws a
+/// `StateError`):
 ///
 /// ```dart
 /// @override

@@ -15,7 +15,7 @@ import 'package:material_ui/material_ui.dart';
 /// - Synchronous (`String? Function(Element, RefRegistry)`).
 /// - Returns null on miss (precondition fails / data unavailable).
 /// - Never retains the Element across calls.
-/// - Reads only — no shared-state mutation.
+/// - Reads only: no shared-state mutation.
 ///
 /// `MagicTapirIntegration.install()` registers all 7 in insertion order;
 /// `resetForTesting()` drops all 7.
@@ -72,7 +72,7 @@ void main() {
   });
 
   // ---------------------------------------------------------------------------
-  // install() / resetForTesting() — covers all 7 enrichers
+  // install() / resetForTesting(): covers all 7 enrichers
   // ---------------------------------------------------------------------------
 
   group('MagicTapirIntegration.install', () {
@@ -183,7 +183,7 @@ void main() {
     testWidgets('returns null when only non-state controllers are registered', (
       tester,
     ) async {
-      // SimpleMagicController has no MagicStateMixin — should be skipped.
+      // SimpleMagicController has no MagicStateMixin, so it is skipped.
       Magic.put<_PlainController>(_PlainController());
 
       await tester.pumpWidget(const MaterialApp(home: SizedBox()));
@@ -275,14 +275,14 @@ void main() {
     );
 
     // -------------------------------------------------------------------------
-    // Step 1.1 (a) — quoting / truncation / null preservation / insertion
+    // Step 1.1 (a): quoting / truncation / null preservation / insertion
     // -------------------------------------------------------------------------
 
     testWidgets(
       'truncates error text longer than 80 characters with an ellipsis',
       (tester) async {
         final ctrl = _StubController();
-        // 100 character message — must be truncated to 80 chars total in
+        // 100 character message: must be truncated to 80 chars total in
         // the emitted output (77 chars of message + "...").
         final long = 'x' * 100;
         ctrl.validationErrors = {'name': long};
@@ -328,7 +328,7 @@ void main() {
       tester,
     ) async {
       final ctrl = _StubController();
-      // Insertion order: name, url, type — emitted output must mirror.
+      // Insertion order: name, url, type; emitted output must mirror.
       ctrl.validationErrors = {
         'name': 'taken',
         'url': 'invalid',
@@ -390,7 +390,7 @@ void main() {
       );
       final element = _findElement(tester, SizedBox);
 
-      // Clear errors mid-test — the enricher must reflect fresh state.
+      // Clear errors mid-test: the enricher must reflect fresh state.
       ctrl.validationErrors = {};
       expect(magicFormErrorsEnricher(element, RefRegistry.instance), isNull);
     });
@@ -687,7 +687,7 @@ void main() {
         );
         expect(emitted1, contains('Bob'));
 
-        // Re-pump a fresh tree — enricher must not retain prior Element.
+        // Re-pump a fresh tree: enricher must not retain prior Element.
         await tester.pumpWidget(const MaterialApp(home: SizedBox()));
         final secondElement = _findElement(tester, SizedBox);
 
@@ -835,7 +835,7 @@ void main() {
     testWidgets('returns null when broadcasting provider is not registered', (
       tester,
     ) async {
-      // No Echo.fake() / BroadcastServiceProvider registered — Magic.bound
+      // No Echo.fake() / BroadcastServiceProvider registered: Magic.bound
       // must be false, enricher must return null.
       await tester.pumpWidget(const MaterialApp(home: SizedBox()));
       final element = _findElement(tester, SizedBox);
@@ -895,7 +895,7 @@ void main() {
 
       expect(MagicTapirIntegration.isInstalled, isTrue);
 
-      // resetForTesting() is called in setUp via tearDown — calling it again
+      // resetForTesting() is called in setUp via tearDown; calling it again
       // here must not throw (subscription cancel is idempotent).
       MagicTapirIntegration.resetForTesting();
 
@@ -967,7 +967,7 @@ void main() {
       'returns null when abilities are defined but none have been checked',
       (tester) async {
         Gate.define('view-dashboard', (user, _) => true);
-        // No Gate.allows() call — lastResult must be null for all abilities.
+        // No Gate.allows() call: lastResult must be null for all abilities.
 
         await tester.pumpWidget(const MaterialApp(home: SizedBox()));
         final element = _findElement(tester, SizedBox);
@@ -1214,7 +1214,7 @@ void main() {
       );
       expect(first, contains('id=42'));
 
-      // Navigate to a new id — enricher must reflect the fresh state.
+      // Navigate to a new id: enricher must reflect the fresh state.
       MagicRouter.instance.to('/monitors/99');
       await tester.pumpAndSettle();
       final secondElement = _findElement(tester, SizedBox);
@@ -1247,7 +1247,7 @@ void main() {
         await tester.pumpWidget(const MaterialApp(home: SizedBox()));
         final element = _findElement(tester, SizedBox);
 
-        // Buffer empty after resetForTesting — the static call returns [] and
+        // Buffer empty after resetForTesting: the static call returns [] and
         // the enricher must coalesce to null (no throw, no empty-suffix emit).
         expect(magicRecentHttpEnricher(element, RefRegistry.instance), isNull);
       },
@@ -1280,7 +1280,7 @@ void main() {
     testWidgets('truncates URLs longer than 40 characters with an ellipsis', (
       tester,
     ) async {
-      // 60-char URL — must be cropped to 40 chars total in emitted output
+      // 60-char URL: must be cropped to 40 chars total in emitted output
       // (37 chars + "..." suffix per the 40-char budget).
       final long = '/api/v1/${'x' * 80}/show';
       CrumbsStore.recordHttp(
@@ -1309,7 +1309,7 @@ void main() {
     testWidgets(
       'preserves insertion order across multiple http records and caps at 5',
       (tester) async {
-        // Insert 7 records — recentHttp(limit: 5) keeps the latest 5 in
+        // Insert 7 records: recentHttp(limit: 5) keeps the latest 5 in
         // insertion order (FIFO over the buffer).
         for (int i = 1; i <= 7; i++) {
           CrumbsStore.recordHttp(
@@ -1392,7 +1392,7 @@ void main() {
       final first = magicRecentHttpEnricher(firstElement, RefRegistry.instance);
       expect(first, contains('/first'));
 
-      // Append a fresh record, re-pump a fresh element — second read must
+      // Append a fresh record, re-pump a fresh element: second read must
       // surface BOTH entries (no stale element retention, fresh buffer read).
       CrumbsStore.recordHttp(
         HttpRequestRecord(
@@ -1575,7 +1575,7 @@ void main() {
       final firstElement = _findElement(tester, SizedBox);
       magicRecentLogsEnricher(firstElement, RefRegistry.instance);
 
-      // Clear and re-record — second read must reflect fresh state.
+      // Clear and re-record: second read must reflect fresh state.
       CrumbsStore.resetForTesting();
       CrumbsStore.recordLog(
         LogRecordEntry(
@@ -1632,7 +1632,7 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        // 2. Install the integration — this registers the adapter.
+        // 2. Install the integration: this registers the adapter.
         MagicTapirIntegration.install();
 
         final adapter = TapirPlugin.navigateAdapter;
@@ -1836,7 +1836,7 @@ void main() {
       );
       expect(first, contains('FirstError'));
 
-      // Clear and re-record — second element must read the fresh buffer state.
+      // Clear and re-record: second element must read the fresh buffer state.
       CrumbsStore.resetForTesting();
       CrumbsStore.recordException(
         ExceptionRecord(

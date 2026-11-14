@@ -5,7 +5,7 @@ import 'package:magic_devtools/preview.dart';
 
 /// Tests for [MagicPreview]'s registration entrypoint and the two plain
 /// `/preview` pages (`/preview` and `/preview/:component`) it wires into
-/// [MagicRouter] (a persistent ShellRoute is deliberately avoided — it would
+/// [MagicRouter] (a persistent ShellRoute is deliberately avoided: it would
 /// not rebuild when only the child route swaps).
 ///
 /// The release boundary itself (the `kReleaseMode` early return + tree-shaking)

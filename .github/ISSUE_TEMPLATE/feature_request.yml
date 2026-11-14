@@ -1,0 +1,51 @@
+name: Feature Request
+description: Suggest a new enricher, watcher or improvement for magic_devtools
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Have an idea for magic_devtools? Say which part of Magic's runtime an agent
+        or a CI driver cannot see yet, and which tool should show it.
+
+  - type: dropdown
+    id: integration
+    attributes:
+      label: Integration
+      options:
+        - tapir (snapshot enricher, navigate adapter)
+        - crumbs (watcher, HTTP adapter)
+        - perf (tracing, insight rules)
+        - preview catalog
+        - something new
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What would you like to see, and why is it needed?
+    validations:
+      required: true
+
+  - type: textarea
+    id: use-case
+    attributes:
+      label: Use Case
+      description: Describe a real scenario where you would use it.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Any workaround you tried?
+
+  - type: textarea
+    id: code
+    attributes:
+      label: Example Output
+      description: What would the snapshot line, record or API look like in practice?
+      render: dart

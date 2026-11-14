@@ -1,0 +1,87 @@
+name: Bug Report
+description: Report a bug in magic_devtools
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. A bug is easier to fix when it names the integration
+        and the line that was wrong: a tapir snapshot enricher key (`magicRoute`,
+        `magicFormErrors`, ...), a crumbs record, a perf trace or the preview catalog.
+
+  - type: dropdown
+    id: integration
+    attributes:
+      label: Integration
+      options:
+        - MagicTapirIntegration (tapir snapshot enrichers, navigate adapter)
+        - MagicCrumbsIntegration (crumbs watchers, MagicHttpFacadeAdapter)
+        - MagicPerfIntegration (perf tracing)
+        - MagicPreview (preview catalog)
+        - MagicDevtools (installPre / installPost wiring)
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What went wrong?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: |
+        For example:
+        1. Call `MagicDevtools.installPre()` before `Magic.init()` and `installPost()` after it
+        2. Open a page with a `MagicForm` that has a server-side validation error
+        3. Take a tapir snapshot and read the `magicFormErrors` line
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options:
+        - Android
+        - iOS
+        - macOS
+        - Windows
+        - Linux
+        - Web
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: magic_devtools Version
+      placeholder: "1.0.0"
+    validations:
+      required: true
+
+  - type: input
+    id: tool-versions
+    attributes:
+      label: magic, tapir and crumbs Versions
+      placeholder: "magic 1.0.0, tapir 1.0.0, crumbs 1.0.0"
+    validations:
+      required: true
+
+  - type: textarea
+    id: flutter-doctor
+    attributes:
+      label: flutter doctor -v
+      render: shell

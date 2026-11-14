@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **The package page points to the new home.** The pub.dev homepage is now `https://anilcancakir.com/magic/devtools`, the repository and issue tracker are `github.com/anilcancakir/magic_devtools`, the description says what the package wires and that release builds drop it, and the package lists the `devtools`, `debugging`, `testing`, `observability` and `magic` topics. (`pubspec.yaml`)
+- **`MagicPreview.registerRoutes()` documents what a late call does.** A call after `MagicRouter.instance.routerConfig` was first read throws the router's `StateError`; the doc comment used to say the routes silently never appear. (`lib/preview.dart`, `lib/src/preview/preview_routes.dart`)
+- **API docs read cleanly on pub.dev.** The enricher formats in `MagicTapirIntegration` and the query binding note in `MagicCrumbsIntegration` are code spans, so dartdoc no longer reads `<Class>`, `<bool>` or `List<dynamic>` as HTML, and `MagicEventWatcher` describes its empty payload without pre-release wording. (`lib/src/tapir_integration.dart`, `lib/src/crumbs_integration.dart`)
+- **The license names the author as `Anılcan Çakır`.** (`LICENSE`)
+
 ## [1.0.0] - 2026-11-14
 
 ### BREAKING

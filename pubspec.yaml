@@ -1,9 +1,16 @@
 name: magic_devtools
-description: "Magic adapters for the tapir and crumbs dev tools: wires MagicTapirIntegration and MagicCrumbsIntegration into tapir and crumbs."
+description: "Wire a Magic app into tapir (E2E driver) and crumbs (runtime inspector): Magic-aware snapshots, records, perf tracing and previews, tree-shaken from release builds."
 version: 1.0.0
-homepage: https://magic.fluttersdk.com
-repository: https://github.com/fluttersdk/magic_devtools
-issue_tracker: https://github.com/fluttersdk/magic_devtools/issues
+homepage: https://anilcancakir.com/magic/devtools
+repository: https://github.com/anilcancakir/magic_devtools
+issue_tracker: https://github.com/anilcancakir/magic_devtools/issues
+
+topics:
+  - devtools
+  - debugging
+  - testing
+  - observability
+  - magic
 
 environment:
   sdk: ">=3.13.0 <4.0.0"

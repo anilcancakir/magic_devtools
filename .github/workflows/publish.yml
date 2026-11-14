@@ -5,15 +5,60 @@ on:
     tags:
       - '[0-9]+.[0-9]+.[0-9]+*'
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
 jobs:
   validate:
     name: Validate
     runs-on: ubuntu-latest
+    outputs:
+      notes: ${{ steps.notes.outputs.body }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      # pub.dev trusts every tag that matches the pattern, so a tag pushed from
+      # an unmerged branch would publish code that skipped the pull request and
+      # its checks. Release from the merge commit on master.
+      - name: Require the tag to sit on master
+        run: |
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/master; then
+            echo "::error::Tag $GITHUB_REF_NAME is not on master; tag the merge commit." >&2
+            exit 1
+          fi
+
+      # The tag, pubspec.yaml and the agent skill must name one version, or
+      # pub.dev, the GitHub Release and the skill would each carry a different
+      # one. The package has no podspec; the skill is checked once
+      # skills/magic-devtools/SKILL.md exists. The CHANGELOG heading is checked
+      # by the extraction step below.
+      - name: Check version stamps
+        env:
+          TAG: ${{ github.ref_name }}
+          SKILL: skills/magic-devtools/SKILL.md
+        run: |
+          pubspec="$(awk '/^version:/ { print $2 }' pubspec.yaml)"
+          if [ "$TAG" != "$pubspec" ]; then
+            echo "::error::Version mismatch: tag $TAG, pubspec.yaml $pubspec." >&2
+            exit 1
+          fi
+          if [ -f "$SKILL" ]; then
+            skill="$(awk '/^version:/ { print $2; exit }' "$SKILL")"
+            if [ "$TAG" != "$skill" ]; then
+              echo "::error::Version mismatch: tag $TAG, skill $skill." >&2
+              exit 1
+            fi
+          fi
 
       - name: Setup Flutter
-        uses: subosito/flutter-action@v2
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
           channel: stable
           cache: true
@@ -30,34 +75,67 @@ jobs:
       - name: Run tests
         run: flutter test
 
-  # PREREQUISITE, and it is not in this file: pub.dev must have automated publishing
-  # turned on for this package (package page -> Admin -> Automated publishing),
-  # naming this repository and a matching tag pattern. Without it the workflow gets
-  # as far as uploading and pub.dev refuses with "The calling GitHub Action is not
-  # allowed to publish, because: publishing from github is not enabled", exit 65.
-  # That is what happened to the 0.0.2 tag on 2026-07-29: validate passed, the
-  # dry-run reported 0 warnings, and the release still never reached pub.dev, so the
-  # version sat unpublished while consumers requiring ^0.0.2 could not resolve at
-  # all. 0.0.2 was then published by hand from a maintainer's machine, which does
-  # NOT turn the setting on.
-  #
-  # The setting was turned on for this package on 2026-08-05. It is ENABLED AND
-  # STILL UNVERIFIED, and those are two different things: 0.0.2 and 0.0.3 both had
-  # to be published by hand, so no release has yet travelled this path end to end.
-  # The first tag pushed for a version that does not exist on pub.dev is the test,
-  # and until one lands, treat a green `validate` job as saying nothing about
-  # whether the upload will be authorized. Delete this paragraph when a release
-  # actually reaches pub.dev through the workflow, and say which version proved it.
-  #
-  # And do not try to probe it by re-tagging an already-published version: pub.dev
-  # checks version-existence BEFORE authorization, so an existing version always
-  # answers "Version X of package Y already exists" whether or not publishing from
-  # github is enabled. That reply looks like proof the identity was accepted and is
-  # not; 0.0.3 was tagged on the strength of that reading and got the permission
-  # refusal anyway. The only honest test is a version that does not exist yet.
-  # See https://dart.dev/go/publishing-from-github
+      - name: Validate publish archive
+        run: flutter pub publish --dry-run
+
+      # pub.dev scores 160 points and a release that loses any of them stops
+      # here, before the irreversible publish. A repository URL that does not
+      # match the default branch's pubspec.yaml costs the 10 points of "valid
+      # pubspec"; an unreachable homepage or documentation URL only warns.
+      - name: Require full pub.dev points (pana)
+        run: |
+          dart pub global activate pana 0.23.13
+          dart pub global run pana --no-warning --exit-code-threshold 0 .
+
+      # Runs before the irreversible publish: a tag without a `## [<version>]`
+      # section in CHANGELOG.md stops here instead of shipping a version with
+      # no GitHub Release.
+      - name: Extract changelog section
+        id: notes
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          notes="$(awk -v ver="$VERSION" '
+            $0 ~ "^## \\[" ver "\\]" { flag = 1; next }
+            flag && /^## / { exit }
+            flag { print }
+          ' CHANGELOG.md)"
+          if [ -z "$(printf '%s' "$notes" | tr -d '[:space:]')" ]; then
+            echo "::error::No CHANGELOG.md section found for $VERSION; refusing to publish a version without release notes." >&2
+            exit 1
+          fi
+          {
+            echo 'body<<CHANGELOG_EOF'
+            printf '%s\n' "$notes"
+            echo 'CHANGELOG_EOF'
+          } >> "$GITHUB_OUTPUT"
+
   publish:
     needs: validate
     permissions:
       id-token: write # Required for authentication using OIDC
-    uses: dart-lang/setup-dart/.github/workflows/publish.yml@v1
+    uses: dart-lang/setup-dart/.github/workflows/publish.yml@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1.8.1
+
+  github-release:
+    name: GitHub Release
+    needs: [validate, publish]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Required to create the GitHub Release
+    steps:
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ github.ref_name }}
+          NOTES: ${{ needs.validate.outputs.notes }}
+        run: |
+          case "$VERSION" in
+            *-*) FLAG="--prerelease" ;;
+            *) FLAG="--latest" ;;
+          esac
+          gh release create "$VERSION" \
+            --title "$VERSION" \
+            --notes "$NOTES" \
+            --verify-tag \
+            "$FLAG"

@@ -19,6 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **API docs read cleanly on pub.dev.** The enricher formats in `MagicTapirIntegration` and the query binding note in `MagicCrumbsIntegration` are code spans, so dartdoc no longer reads `<Class>`, `<bool>` or `List<dynamic>` as HTML, and `MagicEventWatcher` describes its empty payload without pre-release wording. (`lib/src/tapir_integration.dart`, `lib/src/crumbs_integration.dart`)
 - **The license names the author as `Anılcan Çakır`.** (`LICENSE`)
 
+### Fixed
+
+- **An enriched snapshot no longer fails in an app without auth.** `magicAuthUserEnricher` called `Auth.user()` even when no `AuthServiceProvider` was registered, so the container's "Service [auth] is not registered" error ended the whole `tapir:snap --includeEnrichers`. It now returns nothing when the `auth` binding is missing, as the Echo enricher does for `broadcasting`, and the other enrichers keep their lines. (`lib/src/tapir_integration.dart`, `test/tapir_integration_test.dart`, `doc/basics/tapir-integration.md`)
+
 ## [1.0.0] - 2026-11-14
 
 ### BREAKING

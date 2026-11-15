@@ -68,7 +68,7 @@ body:
     id: version
     attributes:
       label: magic_devtools Version
-      placeholder: "1.0.0"
+      placeholder: "1.0.1"
     validations:
       required: true
 

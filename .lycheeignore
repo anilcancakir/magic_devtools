@@ -11,6 +11,12 @@
 # A private vulnerability report needs a signed-in session.
 ^https://github\.com/anilcancakir/magic_devtools/security/advisories/new
 
+# 2026-11-15: the docs site serves doc/ only from a release tag, so the
+# devtools pages answer 404 until the first tag that carries them. Remove this
+# line once https://anilcancakir.com/magic/docs/devtools/getting-started/installation
+# answers 200.
+^https://anilcancakir\.com/magic/docs/devtools/
+
 # Placeholder hosts inside example code.
 ^https?://([a-z0-9-]+\.)*example\.com
 ^https?://localhost

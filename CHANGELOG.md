@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Documentation pages.** `doc/` now covers installation and the two-phase install, the tapir integration (the 14 snapshot enrichers and the navigate adapter), the crumbs integration (HTTP capture, the five watchers, credential masking and the tapir bridge), performance sessions and the insight rules, the preview catalog, and testing. The docs site publishes them under `https://anilcancakir.com/magic/docs/devtools/` from the next release. (`doc/`)
+- **A docs check.** `python3 tool/check-docs.py` checks the page layout, titles, internal links, anchors and docs-site URLs offline, and the `Internal Links` and `External Links` jobs run it and lychee in CI. (`tool/check-docs.py`, `.github/workflows/docs-link-check.yml`, `.lycheeignore`, `.claude/rules/docs.md`)
+
 ### Changed
 
 - **The package page points to the new home.** The pub.dev homepage is now `https://anilcancakir.com/magic/devtools`, the repository and issue tracker are `github.com/anilcancakir/magic_devtools`, the description says what the package wires and that release builds drop it, and the package lists the `devtools`, `debugging`, `testing`, `observability` and `magic` topics. (`pubspec.yaml`)

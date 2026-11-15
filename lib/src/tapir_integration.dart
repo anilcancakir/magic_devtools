@@ -338,12 +338,18 @@ String? magicMiddlewareEnricher(Element element, RefRegistry refs) {
 /// Enricher: emits `magicAuthUser: <id>[:<displayName>]` for the
 /// authenticated user.
 ///
+/// - Returns null when the container has no `'auth'` binding (no
+///   [AuthServiceProvider] registered), the same guard
+///   [magicEchoConnectionEnricher] applies to `'broadcasting'`. Without it,
+///   `Auth.user()` throws and the whole snapshot fails.
 /// - Returns null when `Auth.user()` returns null (guest session).
 /// - Emits `magicAuthUser: <id>:<displayName>` when the user model
 ///   carries a non-empty `display_name` attribute.
 /// - Falls back to `magicAuthUser: <id>` (id only, no trailing colon)
 ///   when `display_name` is null, missing, or the empty string.
 String? magicAuthUserEnricher(Element element, RefRegistry refs) {
+  if (!Magic.bound('auth')) return null;
+
   final Model? user = Auth.user<Model>();
   if (user == null) return null;
 

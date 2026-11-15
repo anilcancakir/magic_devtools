@@ -621,6 +621,45 @@ void main() {
   // ---------------------------------------------------------------------------
 
   group('magicAuthUserEnricher', () {
+    testWidgets('returns null when no auth binding is registered', (
+      tester,
+    ) async {
+      // No AuthServiceProvider and no Auth.fake(): the container has no
+      // `auth` binding, as in an app that never registered auth.
+      expect(Magic.bound('auth'), isFalse);
+
+      await tester.pumpWidget(const MaterialApp(home: SizedBox()));
+      final element = _findElement(tester, SizedBox);
+
+      expect(magicAuthUserEnricher(element, RefRegistry.instance), isNull);
+    });
+
+    testWidgets(
+      'lets every other enricher contribute when no auth binding is registered',
+      (tester) async {
+        expect(Magic.bound('auth'), isFalse);
+        MagicRoute.page('/', () => const SizedBox());
+        MagicTapirIntegration.install();
+
+        await tester.pumpWidget(
+          MaterialApp.router(routerConfig: MagicRouter.instance.routerConfig),
+        );
+        await tester.pumpAndSettle();
+        final element = _findElement(tester, SizedBox);
+
+        final List<String?> lines = <String?>[
+          for (final TapirSnapshotEnricher enricher in TapirPlugin.enrichers)
+            enricher(element, RefRegistry.instance),
+        ];
+
+        expect(lines, contains('magicRoute: /'));
+        expect(
+          lines.whereType<String>().where((l) => l.startsWith('magicAuthUser')),
+          isEmpty,
+        );
+      },
+    );
+
     testWidgets('returns null when no user is authenticated', (tester) async {
       Auth.fake(); // no user
 

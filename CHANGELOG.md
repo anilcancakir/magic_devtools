@@ -7,9 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-11-15
+
 ### Added
 
-- **Documentation pages.** `doc/` now covers installation and the two-phase install, the tapir integration (the 14 snapshot enrichers and the navigate adapter), the crumbs integration (HTTP capture, the five watchers, credential masking and the tapir bridge), performance sessions and the insight rules, the preview catalog, and testing. The docs site publishes them under `https://anilcancakir.com/magic/docs/devtools/` from the next release. (`doc/`)
+- **Documentation pages.** `doc/` now covers installation and the two-phase install, the tapir integration (the 14 snapshot enrichers and the navigate adapter), the crumbs integration (HTTP capture, the five watchers, credential masking and the tapir bridge), performance sessions and the insight rules, the preview catalog, and testing. The docs site publishes them under `https://anilcancakir.com/magic/docs/devtools/` from this release. (`doc/`)
 - **A docs check.** `python3 tool/check-docs.py` checks the page layout, titles, internal links, anchors and docs-site URLs offline, and the `Internal Links` and `External Links` jobs run it and lychee in CI. (`tool/check-docs.py`, `.github/workflows/docs-link-check.yml`, `.lycheeignore`, `.claude/rules/docs.md`)
 - **`llms.txt` for AI coding agents.** A summary, the setup, the API of each barrel, the platform notes, the rules an agent follows and one line per doc page. `python3 tool/check-docs.py` resolves its doc lines against `doc/`, and the weekly `External Links` job checks its URLs. (`llms.txt`, `tool/check-docs.py`, `.github/workflows/docs-link-check.yml`)
 - **An agent skill.** `skills/magic-devtools/SKILL.md` carries the install, the rules for each integration with their reasons, recipes and the test resets; install it with `npx skills add anilcancakir/magic_devtools`. A stable release mirrors it into the skill registry. (`skills/magic-devtools/SKILL.md`, `.github/workflows/dispatch-to-registry.yml`, `.github/workflows/publish.yml`)

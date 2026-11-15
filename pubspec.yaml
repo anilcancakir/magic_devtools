@@ -1,6 +1,6 @@
 name: magic_devtools
 description: "Wire a Magic app into tapir (E2E driver) and crumbs (runtime inspector): Magic-aware snapshots, records, perf tracing and previews, tree-shaken from release builds."
-version: 1.0.0
+version: 1.0.1
 homepage: https://anilcancakir.com/magic/devtools
 repository: https://github.com/anilcancakir/magic_devtools
 issue_tracker: https://github.com/anilcancakir/magic_devtools/issues

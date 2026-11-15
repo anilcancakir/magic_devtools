@@ -140,7 +140,7 @@ Rules run only on an `attribution` report with at least one painted frame. Each 
 | Mistake | Fix |
 |:--------|:----|
 | Wiring only `tapir:install` and `crumbs:install`, then reading a perf report of zeros. | Neither installer writes `MagicPerfIntegration`; call `MagicDevtools.installPre()` or `MagicPerfIntegration.install()`. |
-| Calling `MagicPerfIntegration.install()` (or `installPre()`) after `runApp`, from a lazy debug toggle. | It throws the router's `StateError`; install it before `Magic.init()`. |
+| Calling `MagicPerfIntegration.install()` (or `installPre()`) after `Magic.init()`, whether in `main` or from a lazy debug toggle. | `Magic.init()` builds the router as its last step, so it throws the router's `StateError`; install it before `Magic.init()`. |
 | Guarding the wiring with `kDebugMode`. | A profile build then registers nothing; use `!kReleaseMode`, since a measurement belongs on a profile build. |
 | Expecting insights from a `timing` session. | Timing sessions count nothing; run an `attribution` session for insights and a `timing` one for comparable milliseconds. |
 | Expecting a dialog in `routeTransitions`. | Only named pushes are timed; give the route a name if it matters. |

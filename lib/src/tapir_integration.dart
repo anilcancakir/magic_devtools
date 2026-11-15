@@ -76,14 +76,13 @@ class MagicTapirIntegration {
   /// Idempotent install. Safe to call multiple times within the same
   /// isolate lifetime (matches [TapirPlugin.install] semantics).
   ///
-  /// Insertion order is load-bearing: the two original enrichers keep
-  /// their slot, the five Plan-Step-17 enrichers are appended after
-  /// them, the two Step-1.1 enrichers (controllerFlags, routeParams)
-  /// land at slots 7 and 8, the two Step-1.2 enrichers
-  /// (echoConnection, gateResultsAll) land at slots 9 and 10, and the
-  /// three Step-1.3 crumbs-bridge enrichers (recentHttp, recentLogs,
-  /// recentExceptions) land at slots 11, 12, 13 so the order of the lines in
-  /// a snapshot stays deterministic across versions. After enricher
+  /// Insertion order is load-bearing: form and navigation keep slots 0
+  /// and 1, controller state, form errors, gate result, middleware and
+  /// auth user take slots 2 to 6, controller flags and route params 7 and
+  /// 8, Echo connection and all gate results 9 and 10, and the three
+  /// crumbs-bridge enrichers (recentHttp, recentLogs, recentExceptions)
+  /// 11, 12 and 13, so the order of the lines in a snapshot stays
+  /// deterministic across versions. After enricher
   /// registration, one navigate adapter is wired via
   /// [TapirPlugin.registerNavigateAdapter] so `ext.tapir.navigate --route`
   /// drives [MagicRouter.instance.to] (path-based) instead of falling
@@ -92,26 +91,26 @@ class MagicTapirIntegration {
     if (_installed) return;
     _installed = true;
 
-    // 1. Original enrichers (insertion slots 0 and 1, stable).
+    // 1. Form and navigation (slots 0 and 1).
     TapirPlugin.enrichers.add(magicFormEnricher);
     TapirPlugin.enrichers.add(magicNavigationEnricher);
 
-    // 2. Plan-Step-17 enrichers (slots 2..6, added in declaration order).
+    // 2. Controller, form errors, gate, middleware, auth user (slots 2..6).
     TapirPlugin.enrichers.add(magicControllerEnricher);
     TapirPlugin.enrichers.add(magicFormErrorsEnricher);
     TapirPlugin.enrichers.add(magicGateResultEnricher);
     TapirPlugin.enrichers.add(magicMiddlewareEnricher);
     TapirPlugin.enrichers.add(magicAuthUserEnricher);
 
-    // 3. Step-1.1 enrichers (slots 7..8, added in declaration order).
+    // 3. Controller flags and route params (slots 7..8).
     TapirPlugin.enrichers.add(magicControllerFlagsEnricher);
     TapirPlugin.enrichers.add(magicRouteParamsEnricher);
 
-    // 4. Step-1.2 enrichers (slots 9..10, added in declaration order).
+    // 4. Echo connection and all gate results (slots 9..10).
     TapirPlugin.enrichers.add(magicEchoConnectionEnricher);
     TapirPlugin.enrichers.add(magicGateResultsAllEnricher);
 
-    // 5. Step-1.3 crumbs-bridge enrichers (slots 11..13). Each enricher
+    // 5. The crumbs-bridge enrichers (slots 11..13). Each enricher
     //    wraps its [CrumbsStore] read in try/catch so a missing-crumbs
     //    classpath collapses to a graceful null without bubbling up.
     TapirPlugin.enrichers.add(magicRecentHttpEnricher);
@@ -314,8 +313,7 @@ String? magicGateResultEnricher(Element element, RefRegistry refs) {
 /// Enricher: emits `magicMiddleware: <name1,name2>` for the active
 /// route's resolved middleware names.
 ///
-/// Uses [MagicRouter.currentRoute] (added in Plan Step 17 sub-change a)
-/// to reach the [RouteDefinition.middlewares] list without depending on
+/// Uses [MagicRouter.currentRoute] to reach the [RouteDefinition.middlewares] list without depending on
 /// any private router state. Middleware names come from the
 /// instance's `toString()` for [MagicMiddleware] objects (subclasses
 /// typically use the class name) and the raw string for string aliases.

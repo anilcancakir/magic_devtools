@@ -1,0 +1,24 @@
+name: magic_devtools_example
+description: Wires tapir and crumbs around Magic.init with MagicDevtools and hosts a two-entry preview catalog.
+publish_to: 'none'
+
+environment:
+  sdk: ">=3.13.0 <4.0.0"
+  flutter: ">=3.47.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  crumbs: ^1.0.0
+  magic: ^1.0.0
+  magic_devtools:
+    path: ../
+  tapir: ^1.0.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true

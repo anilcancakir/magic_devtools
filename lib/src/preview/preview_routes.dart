@@ -13,9 +13,6 @@ import 'magic_preview.dart';
 /// this is a `const`, the release-mode optimizer can fold the guarded branch in
 /// [MagicPreview.registerRoutes] dead and tree-shake the entire catalog,
 /// every [PreviewEntry], and every builder it transitively references.
-/// release-mode optimizer can fold the guarded branch in
-/// [MagicPreview.registerRoutes] dead and tree-shake the entire catalog,
-/// every [PreviewEntry], and every builder it transitively references.
 const bool kPreviewEnabled = bool.fromEnvironment(
   'PREVIEW_ENABLED',
   defaultValue: kDebugMode,
@@ -23,7 +20,8 @@ const bool kPreviewEnabled = bool.fromEnvironment(
 
 /// **The dev-only preview registration entrypoint.**
 ///
-/// The generated `_previews.g.dart` (Step 18) returns a `List<PreviewEntry>`
+/// The `_previews.g.dart` that `dart run magic:dowel previews:refresh`
+/// generates returns a `List<PreviewEntry>`
 /// from a FUNCTION and feeds it here:
 ///
 /// ```dart
@@ -69,8 +67,9 @@ final class MagicPreview {
   /// accessed (`MagicRouter.routerConfig` builds the GoRouter and sets
   /// `_isBuilt`, after which `addRoute` throws `StateError`). Call
   /// [registerRoutes] inside a provider `boot()`: it runs during the Magic
-  /// bootstrap lifecycle, before `MaterialApp` reads
-  /// `MagicRouter.instance.routerConfig`. A call after that first read throws
+  /// bootstrap lifecycle, before `Magic.init()` reads
+  /// `MagicRouter.instance.routerConfig` as its last step. A call after that
+  /// first read, any time after `Magic.init()` has returned, throws
   /// the router's `StateError` ("Cannot add routes after the router has been
   /// built") from the first `MagicRoute.page` below.
   ///

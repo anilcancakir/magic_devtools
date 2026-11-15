@@ -45,10 +45,10 @@ DOC_URL_PREFIX = f'/magic/docs/{ECOSYSTEM_SLUG}/'
 DOC_ROOT = Path('doc')
 
 # Extra files that carry links into the docs without following the doc/ page
-# shape, so they join the link checks but not the structure checks. A file
-# that does not exist yet is skipped rather than reported: llms.txt arrives in
-# a later change, and once it does, its doc lines (the absolute docs URLs) are
-# resolved against doc/ by the site URL check below.
+# shape, so they join the link checks but not the structure checks. The doc
+# lines of llms.txt are absolute docs-site URLs, which the site URL check below
+# resolves against doc/. A listed file that does not exist (CONTRIBUTING.md
+# today) is skipped rather than reported.
 EXTRA_LINK_FILES = (
     Path('README.md'),
     Path('CONTRIBUTING.md'),

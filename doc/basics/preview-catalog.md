@@ -109,18 +109,19 @@ The `kDebugMode` check around the calls in the sample keeps `previewEntries()` i
 <a name="router-timing"></a>
 ## Router Timing
 
-`MagicRouter` locks its route table the first time `routerConfig` is read, which `MagicApplication` does when it builds. A provider's `boot()` runs inside `Magic.init()`, before that read, so it is the place to call `registerRoutes()`. A later call throws the router's `StateError` ("Cannot add routes after the router has been built") from the first `MagicRoute.page` it adds.
+`MagicRouter` locks its route table the first time `routerConfig` is read, and `Magic.init()` reads it itself as its last step, once every provider has booted. A provider's `boot()` runs before that read, so it is the place to call `registerRoutes()`. A call after `Magic.init()` has returned, before `runApp` included, throws the router's `StateError` ("Cannot add routes after the router has been built") from the first `MagicRoute.page` it adds.
 
 <a name="gotchas"></a>
 ## Gotchas
 
 | Mistake | Fix |
 |:--------|:----|
-| Calling `registerRoutes()` after the app is running. | It throws a `StateError`; call it from a provider's `boot()`. |
+| Calling `registerRoutes()` after `Magic.init()`, in `main` or later. | It throws a `StateError`; call it from a provider's `boot()`. |
 | Calling `register()` after `registerRoutes()`. | The routes captured the entries at registration, so the catalog stays empty; call `register()` first. |
 | Giving a preview class a non-const constructor. | The generated builder is `const XxxPreview()` and fails to compile; add a `const` constructor. |
 | Declaring a helper `class FooPreview` next to the real one in the same file. | Only one public `*Preview` class per file; make the helper private or rename it. |
 | Wrapping the calls in `kDebugMode` and then passing `PREVIEW_ENABLED=true` to a profile build. | The `kDebugMode` check is false in profile and nothing registers; use `!kReleaseMode` at the call site instead. |
+
 <a name="related-documentation"></a>
 ## Related Documentation
 

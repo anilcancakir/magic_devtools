@@ -41,9 +41,9 @@ import 'perf_integration.dart';
 /// 6. [MagicQueryWatcher] ; subscribes to `QueryExecuted` and feeds
 ///    [CrumbsStore.recordQuery].
 ///
-/// The integration classes below are exposed for testing but are
-/// NOT re-exported from `package:magic/magic.dart` ; only
-/// [MagicCrumbsIntegration.install] is the documented public entry.
+/// The adapter and the five watchers are public and exported from
+/// `package:magic_devtools/crumbs.dart`, so a host can register a subset
+/// itself; [MagicCrumbsIntegration.install] registers all six at once.
 class MagicCrumbsIntegration {
   MagicCrumbsIntegration._();
 

@@ -23,8 +23,9 @@ final class PreviewEntry {
   final String label;
 
   /// The URL-safe identifier used as the `:component` route segment
-  /// (e.g. `button`). Must be unique across the registered set; the
-  /// `previews:refresh` codegen (Step 18) collision-checks slugs at build time.
+  /// (e.g. `button`). Must be unique across the registered set;
+  /// `dart run magic:dowel previews:refresh` stops with a `FormatException`
+  /// when two previews produce the same slug.
   final String slug;
 
   /// Builds the preview body for this entry.

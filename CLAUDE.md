@@ -69,7 +69,7 @@ Every feature, fix or refactor goes through red, green, refactor: write a failin
 
 - Each integration has a `resetForTesting()`; pair it with the other packages' resets in `tearDown`.
 - `MagicTapirIntegration.resetForTesting()` removes each enricher it added, one by one, so an enricher added to the install list without a matching removal leaks into the next test.
-- Tests mirror `lib/src/` in `test/` and import from `package:magic_devtools/src/...`.
+- Tests mirror `lib/src/` in `test/` and import through a barrel (`magic_devtools.dart`, `tapir.dart`, `crumbs.dart` or `preview.dart`).
 
 ## Key Gotchas
 

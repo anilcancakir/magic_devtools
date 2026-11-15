@@ -73,10 +73,6 @@ jobs:
       # --accept widens lychee's default with 429 and the whole 5xx range
       # because this job hunts link ROT, and neither says a link is gone: they
       # say the host is up and unhappy. 404 and 410 still fail the job.
-      #
-      # llms.txt joins the inputs in the change that adds the file: lychee
-      # rejects a path input that does not exist, so naming it early would
-      # fail every scheduled run until then.
       - name: Check all links including external
         uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2.9.0
         with:
@@ -85,4 +81,5 @@ jobs:
             --accept '100..=103,200..=299,429,500..=599'
             'doc/**/*.md'
             '*.md'
+            'llms.txt'
           fail: true

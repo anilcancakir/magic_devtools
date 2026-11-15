@@ -46,7 +46,7 @@ Requires Dart >=3.13, Flutter >=3.47 and `magic` ^1.0.0. All three packages go u
 4. An enricher has tapir's signature `String? Function(Element, RefRegistry)`, runs synchronously, and never keeps the `Element` between calls.
 5. `tapir:navigate --route` takes a URL path: the adapter calls `MagicRouter.instance.to(route)`, not `toNamed`. On a `StateError` it answers `false` and tapir falls back to its own navigation.
 6. `magicAuthUser` reads only the `id` and `display_name` attributes; a user model without `display_name` prints the id alone. A `MagicMiddleware` object prints through its `toString()`.
-7. Register `AuthServiceProvider` in an app that takes enriched snapshots. `magicAuthUserEnricher` calls `Auth.user()`, and with no `auth` binding the container's "Service [auth] is not registered" error fails the whole `tapir:snap --includeEnrichers`.
+7. Expect no `magicAuthUser` line in an app without `AuthServiceProvider`: the enricher checks `Magic.bound('auth')` first, as the Echo enricher does for `broadcasting`, and the other enrichers keep their lines.
 
 ## MagicCrumbsIntegration rules
 

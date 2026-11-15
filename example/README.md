@@ -18,4 +18,4 @@ dart run crumbs crumbs:dumps
 dart run tapir stop
 ```
 
-The example registers `AuthServiceProvider` because the `magicAuthUser` enricher reads `Auth.user()`, and an enriched snapshot fails in an app with no `auth` binding. `previewEntries()` is written by hand to keep the example in one file; an app generates it with `dart run magic:dowel previews:refresh`.
+`previewEntries()` is written by hand to keep the example in one file; an app generates it with `dart run magic:dowel previews:refresh`.

@@ -31,9 +31,8 @@ Future<void> main() async {
 /// The network driver gives crumbs' HTTP adapter something to intercept;
 /// nothing listens on the port, so a request fails fast and is recorded.
 ///
-/// The auth provider is there because the `magicAuthUser` enricher reads
-/// `Auth.user()`, and a snapshot with enrichers fails in an app whose
-/// container has no `auth` binding.
+/// The auth provider gives the `magicAuthUser` enricher an `auth` binding to
+/// read; nobody signs in here, so the snapshot shows no user line.
 Map<String, dynamic> get _config => {
   'network': {
     'default': 'api',

@@ -50,7 +50,6 @@ Future<void> main() async {
 - Put every install call under `if (!kReleaseMode)` at the call site. Nothing in this package checks the build mode itself, and the constant guard is what tree-shakes the tools from a release build.
 - Call `installPre()` (or `TapirPlugin.install()`, `CrumbsPlugin.install()` and `MagicPerfIntegration.install()`) before `Magic.init()`: `Magic.init()` builds the router, after which `MagicRouter.addObserver` throws a `StateError`. Call `installPost()` after `Magic.init()`: the HTTP adapter and the enrichers resolve the container, and an adapter installed too early attaches nothing and is never retried.
 - Guard with `!kReleaseMode`, not `kDebugMode`: a performance measurement runs on a profile build.
-- Register `AuthServiceProvider` before taking enriched snapshots: `magicAuthUserEnricher` calls `Auth.user()`, and without an `auth` binding `tapir:snap --includeEnrichers` fails with "Service [auth] is not registered".
 - Use one style. `MagicDevtools.installPre()` next to a hand-written `ExceptionWatcher` or `DumpWatcher` registration records every exception and `debugPrint` twice.
 - `tapir:install` and `crumbs:install` write neither `MagicDevtools` nor `MagicPerfIntegration`; an app wired only by them gets a perf report of zeros.
 - Add `magic_devtools`, `tapir` and `crumbs` under `dependencies`, not `dev_dependencies`: `lib/main.dart` imports them.

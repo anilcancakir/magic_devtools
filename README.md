@@ -121,7 +121,7 @@ The navigate adapter makes `tapir:navigate --route /path` call `MagicRouter.inst
 Failure modes:
 
 - `tapir:snap` without `--includeEnrichers` prints no `magic*` lines; enrichers are off by default.
-- In an app with no `auth` binding (no `AuthServiceProvider`), `tapir:snap --includeEnrichers` fails: `magicAuthUserEnricher` calls `Auth.user()`, and the container's "Service [auth] is not registered" error ends the whole snapshot.
+- `magicAuthUser` is absent for a guest and in an app with no `auth` binding (no `AuthServiceProvider`); it reads only the `id` and `display_name` attributes.
 - `magicEchoConnection` follows the connection stream only when `broadcasting` was bound at `install()`; otherwise it can answer only `connected` or `disconnected`.
 - tapir removes no duplicate keys: an app enricher that emits one of these keys produces two lines under the same element.
 
@@ -251,7 +251,6 @@ Failure modes:
 | Pick one style: `MagicDevtools` or the per-tool blocks | Mixing them registers a second `ExceptionWatcher` or `DumpWatcher`, and each exception and `debugPrint` is recorded twice. |
 | Add `magic_devtools`, `tapir` and `crumbs` under `dependencies` | `lib/main.dart` imports them; a `dev_dependencies` entry trips `depend_on_referenced_packages`. |
 | Pass `--includeEnrichers` to `tapir:snap` when you need the `magic*` lines | Enrichers are off by default. |
-| Register `AuthServiceProvider` in an app you snapshot with enrichers | `magicAuthUserEnricher` calls `Auth.user()`, and a missing `auth` binding fails the whole snapshot. |
 | Register preview routes from a provider's `boot()`, after `MagicPreview.register()` | The router locks its table inside `Magic.init()`, and the routes capture the entries registered before them. |
 | In tests, call each `resetForTesting()` and pair it with `CrumbsStore.resetForTesting()`, `EventDispatcher.instance.clear()` and `MagicRouter.reset()` | Every integration keeps static state, and the watchers cannot remove their own dispatcher listeners. |
 

@@ -26,6 +26,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **The docs say when the router locks.** `Magic.init()` builds the router as its last step, so `MagicPreview.registerRoutes()` and `MagicPerfIntegration.install()` already throw when called after `Magic.init()` returns, not only once the app is running; the preview and performance pages and the `registerRoutes()` doc comment said otherwise. The preview page's anchor before Related Documentation no longer sits inside the Gotchas table. (`doc/basics/preview-catalog.md`, `doc/basics/performance.md`, `lib/src/preview/preview_routes.dart`)
 - **Doc comments read cleanly.** The `kPreviewEnabled` comment no longer repeats three lines, the preview and enricher comments drop internal plan-step labels, and `MagicCrumbsIntegration` says its adapter and watchers are public through `package:magic_devtools/crumbs.dart` instead of calling them test-only. (`lib/src/preview/preview_routes.dart`, `lib/src/preview/magic_preview.dart`, `lib/src/tapir_integration.dart`, `lib/src/crumbs_integration.dart`)
 
+### Fixed
+
+- **An enriched snapshot no longer fails in an app without auth.** `magicAuthUserEnricher` called `Auth.user()` even when no `AuthServiceProvider` was registered, so the container's "Service [auth] is not registered" error ended the whole `tapir:snap --includeEnrichers`. It now returns nothing when the `auth` binding is missing, as the Echo enricher does for `broadcasting`, and the other enrichers keep their lines. (`lib/src/tapir_integration.dart`, `test/tapir_integration_test.dart`, `doc/basics/tapir-integration.md`)
+
 ## [1.0.0] - 2026-11-14
 
 ### BREAKING

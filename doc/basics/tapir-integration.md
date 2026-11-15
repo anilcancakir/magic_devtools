@@ -77,7 +77,7 @@ Every enricher is synchronous, has tapir's `TapirSnapshotEnricher` signature (`S
 | `magicGateResult` | `Gate.manager.mostRecentResult`, the last ability any `Gate` check decided. |
 | `magicGateResultsAll` | The cached result of every defined ability that has one, newest first, at most 5. It reads the cache only and never runs an ability. |
 | `magicMiddleware` | The middlewares of `MagicRouter.instance.currentRoute`: a string alias as written, a `MagicMiddleware` by its `toString()`. |
-| `magicAuthUser` | `Auth.user<Model>()`: the `id` attribute, plus `:<display_name>` when that attribute is a non-empty string. Absent for a guest. |
+| `magicAuthUser` | `Auth.user<Model>()`: the `id` attribute, plus `:<display_name>` when that attribute is a non-empty string. Absent for a guest, and absent when the container has no `auth` binding (no `AuthServiceProvider`). |
 | `magicRouteParams` | `MagicRouter.instance.pathParameters` first, then `queryParameters`; absent when both are empty. |
 | `magicEchoConnection` | Absent unless the container has a `broadcasting` binding. The last state the Echo connection stream emitted (`connecting`, `connected`, `reconnecting` or `disconnected`), or, before the first event, `connected` or `disconnected` from `isConnected`. |
 

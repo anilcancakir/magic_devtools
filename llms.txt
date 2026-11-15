@@ -1,0 +1,74 @@
+# magic_devtools
+
+> The Magic adapters for tapir (the E2E driver) and crumbs (the runtime inspector): `MagicDevtools.installPre()` before `Magic.init()` and `installPost()` after it add 14 Magic-aware snapshot enrichers, a `MagicRouter` navigate adapter, an HTTP adapter and five watchers feeding crumbs, the perf data path behind tapir's perf sessions, and a dev-only `/preview` component catalog. Every call sits under `!kReleaseMode`, so debug and profile builds carry the tools and release builds drop them.
+
+**Stack**: Flutter >=3.47.0 · Dart >=3.13.0 · Runtime deps: `magic`, `magic_socket`, `tapir`, `crumbs`, `wind_kit`, `material_ui`. No code generation in the package; the preview index is generated in the app by `dart run magic:dowel previews:refresh`.
+
+**Setup**:
+
+```bash
+flutter pub add magic_devtools tapir crumbs
+```
+
+```dart
+import 'package:flutter/foundation.dart' show kReleaseMode;
+import 'package:flutter/widgets.dart';
+import 'package:magic/magic.dart';
+import 'package:magic_devtools/magic_devtools.dart';
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  if (!kReleaseMode) MagicDevtools.installPre(); // tapir, crumbs, watchers, perf
+
+  await Magic.init(); // pass your configFactories and providers here
+
+  if (!kReleaseMode) MagicDevtools.installPost(); // the two Magic integrations
+
+  runApp(MagicApplication());
+}
+```
+
+`dart run magic:dowel magic:install --with-devtools` writes the same wiring as per-tool blocks while it installs Magic.
+
+## API
+
+- `MagicDevtools` (`package:magic_devtools/magic_devtools.dart`): `installPre()` installs `TapirPlugin`, `CrumbsPlugin`, one `ExceptionWatcher`, one `DumpWatcher` and `MagicPerfIntegration`; `installPost()` installs `MagicCrumbsIntegration`, then `MagicTapirIntegration`. Both idempotent; `resetForTesting()` uninstalls the watcher pair. The same barrel exports `MagicPerfIntegration`, `PerfInsightRules` and `PerfRuleInputs`.
+- `MagicTapirIntegration` (`tapir.dart`): `install()` appends 14 enrichers to `TapirPlugin.enrichers` (keys `magicFormField`, `magicRoute`, `magicControllerState`, `magicFormErrors`, `magicGateResult`, `magicMiddleware`, `magicAuthUser`, `magicControllerFlags`, `magicRouteParams`, `magicEchoConnection`, `magicGateResultsAll`, `magicRecentHttp`, `magicRecentLogs`, `magicRecentExceptions`) and a navigate adapter that calls `MagicRouter.instance.to(route)` for `tapir:navigate --route /path`. Enricher lines appear only with `tapir:snap --includeEnrichers`.
+- `MagicCrumbsIntegration` (`crumbs.dart`): `install()` registers `MagicHttpFacadeAdapter` and `MagicModelWatcher`, `MagicCacheWatcher`, `MagicEventWatcher`, `MagicGateWatcher`, `MagicQueryWatcher`; hides the `auth.token.header` header (default `Authorization`); assigns tapir's `pendingHttpCountReader`, `recentLogsReader` and `recentExceptionsReader` to `CrumbsStore`. Request and response bodies are masked by key and cut at 8192 characters.
+- `MagicPerfIntegration`: `install()` assigns tapir's perf pointers, registers a crumbs `FramePerfWatcher`, calls `Wind.installPerfResolver()` and adds a navigator observer to `MagicRouter`; `interactionLink({int? startUs})` returns `(interactionId, linkedBy)` with `linkedBy` one of `zone`, `frame`, `window`; `controllerNotifyCounts`; `routeTransitions` (named pushes only, at most 200). `PerfInsightRules.evaluate(report, inputs)` runs on `attribution` reports with at least one painted frame.
+- `MagicPreview` (`preview.dart`): `register(entries)` stores a copy, `registerRoutes()` adds `/preview` and `/preview/:component` and returns at once in release or when `kPreviewEnabled` (`bool.fromEnvironment('PREVIEW_ENABLED', defaultValue: kDebugMode)`) is false. `PreviewEntry(label:, slug:, builder:)`, `MagicPreviewCatalog`.
+
+## Platforms
+
+- No native code of its own: the package follows `magic`, `tapir` and `crumbs`. pana 0.23.13 lists Android, iOS, macOS, Windows and Linux; web drops out through `magic`'s `path_provider` import (`magic/src/cache/drivers/file_store_io.dart`).
+- The tools are live in debug and profile builds; a release build drops every `!kReleaseMode` branch and what it reaches.
+- `--dart-define=CRUMBS_DISABLE=true` makes crumbs' `registerWatcher` and `registerHttpAdapter` no-ops, so none of the Magic units attaches.
+
+## Rules for agents
+
+- Put every install call under `if (!kReleaseMode)` at the call site. Nothing in this package checks the build mode itself, and the constant guard is what tree-shakes the tools from a release build.
+- Call `installPre()` (or `TapirPlugin.install()`, `CrumbsPlugin.install()` and `MagicPerfIntegration.install()`) before `Magic.init()`: `Magic.init()` builds the router, after which `MagicRouter.addObserver` throws a `StateError`. Call `installPost()` after `Magic.init()`: the HTTP adapter and the enrichers resolve the container, and an adapter installed too early attaches nothing and is never retried.
+- Guard with `!kReleaseMode`, not `kDebugMode`: a performance measurement runs on a profile build.
+- Register `AuthServiceProvider` before taking enriched snapshots: `magicAuthUserEnricher` calls `Auth.user()`, and without an `auth` binding `tapir:snap --includeEnrichers` fails with "Service [auth] is not registered".
+- Use one style. `MagicDevtools.installPre()` next to a hand-written `ExceptionWatcher` or `DumpWatcher` registration records every exception and `debugPrint` twice.
+- `tapir:install` and `crumbs:install` write neither `MagicDevtools` nor `MagicPerfIntegration`; an app wired only by them gets a perf report of zeros.
+- Add `magic_devtools`, `tapir` and `crumbs` under `dependencies`, not `dev_dependencies`: `lib/main.dart` imports them.
+- Call `MagicPreview.register()` and then `registerRoutes()` from a provider's `boot()`: the routes capture the entries registered before them, and a call after `Magic.init()` throws the router's `StateError`.
+- `Http.fake()` installs no interceptors, so faked requests never reach crumbs. In tests call each integration's `resetForTesting()` with `CrumbsStore.resetForTesting()`, `EventDispatcher.instance.clear()` and `MagicRouter.reset()`.
+
+## Docs
+
+- [Installation](https://anilcancakir.com/magic/docs/devtools/getting-started/installation.md): the two-phase install, wiring one tool, what the installers write, release builds.
+- [Tapir Integration](https://anilcancakir.com/magic/docs/devtools/basics/tapir-integration.md): the 14 enrichers and their keys, the crumbs-backed enrichers, the navigate adapter, gotchas.
+- [Crumbs Integration](https://anilcancakir.com/magic/docs/devtools/basics/crumbs-integration.md): HTTP capture, credential masking, the five watchers, the tapir bridge, gotchas.
+- [Performance](https://anilcancakir.com/magic/docs/devtools/basics/performance.md): session modes, what a session collects, interaction links, the insight rules and their thresholds.
+- [Preview Catalog](https://anilcancakir.com/magic/docs/devtools/basics/preview-catalog.md): writing a preview, generating the index, the release boundary, router timing.
+- [Testing](https://anilcancakir.com/magic/docs/devtools/guides/testing.md): what each reset clears, faking interactions, gotchas.
+
+## Links
+
+- [README](https://github.com/anilcancakir/magic_devtools/blob/master/README.md): install, each integration with its failure modes, the agent rules table.
+- [API reference](https://pub.dev/documentation/magic_devtools/latest/): generated from the doc comments.
+- [Changelog](https://github.com/anilcancakir/magic_devtools/blob/master/CHANGELOG.md): what changed in each version.
+- [Source](https://github.com/anilcancakir/magic_devtools): issues and pull requests.

@@ -84,7 +84,7 @@ tapir's `PerfInteraction` has a private constructor, so a host test cannot open 
 | Mistake | Fix |
 |:--------|:----|
 | Calling `MagicDevtools.installPre()` in a `testWidgets` case and restoring `debugPrint` in `tearDown`. | flutter_test checks its debug variables right after the test body, before `tearDown`; call `MagicDevtools.resetForTesting()` at the end of the body. |
-| Resetting `MagicCrumbsIntegration` and expecting its watchers gone. | The reset drops the guard only; clear `EventDispatcher.instance` too, or a reinstall records each event twice. |
+| Resetting `MagicCrumbsIntegration` and expecting its watchers gone. | The reset drops the guard and puts back the `log` manager, but not the event listeners; clear `EventDispatcher.instance` too, or a reinstall records each event twice. |
 | Calling `MagicPerfIntegration.install()` twice across tests without `MagicRouter.reset()`. | The reset clears the observer flag, so the next install adds a second observer to the same router; reset the router as well. |
 | Asserting crumbs HTTP records while using `Http.fake()`. | The fake driver ignores interceptors; assert on the fake. |
 | Expecting `MagicCrumbsIntegration.resetForTesting()` to restore the masked header list. | It does not; `CrumbsStore.resetForTesting()` restores crumbs' defaults, and the next `install()` adds the auth header again. |

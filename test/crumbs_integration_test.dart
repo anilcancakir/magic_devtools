@@ -465,6 +465,241 @@ void main() {
     });
   });
 
+  group('MagicLogWatcher', () {
+    late FakeLogManager inner;
+
+    setUp(() {
+      MagicApp.reset();
+      Magic.flush();
+      CrumbsStore.resetForTesting();
+      MagicCrumbsIntegration.resetForTesting();
+      inner = Log.fake();
+    });
+
+    tearDown(() {
+      Config.set('logging', <String, dynamic>{});
+      MagicCrumbsIntegration.resetForTesting();
+      Log.unfake();
+      CrumbsStore.resetForTesting();
+      MagicApp.reset();
+      Magic.flush();
+    });
+
+    test('records a Log.info call against the default channel', () {
+      Magic.app.removeInstance('log');
+      Magic.singleton('log', LogManager.new);
+      MagicLogWatcher().install();
+
+      Log.info('x');
+
+      final LogRecordEntry record = CrumbsStore.recentLogs().single;
+      expect(record.message, 'x');
+      expect(record.level, 'INFO');
+      expect(record.levelValue, 800);
+      expect(record.loggerName, 'console');
+      expect(record.error, isNull);
+    });
+
+    test('names the configured default channel', () {
+      Config.set('logging.default', 'daily');
+      MagicLogWatcher().install();
+
+      Log.info('x');
+
+      expect(CrumbsStore.recentLogs().single.loggerName, 'daily');
+    });
+
+    test('maps every magic level onto a crumbs level', () {
+      MagicLogWatcher().install();
+
+      Log.emergency('emergency');
+      Log.alert('alert');
+      Log.critical('critical');
+      Log.error('error');
+      Log.warning('warning');
+      Log.notice('notice');
+      Log.info('info');
+      Log.debug('debug');
+      Log.log('trace', 'unknown');
+
+      expect(
+        <String, (String, int)>{
+          for (final LogRecordEntry r in CrumbsStore.recentLogs())
+            r.message: (r.level, r.levelValue),
+        },
+        equals(<String, (String, int)>{
+          'emergency': ('SHOUT', 1200),
+          'alert': ('SHOUT', 1200),
+          'critical': ('SHOUT', 1200),
+          'error': ('SEVERE', 1000),
+          'warning': ('WARNING', 900),
+          'notice': ('INFO', 800),
+          'info': ('INFO', 800),
+          'debug': ('FINE', 500),
+          'unknown': ('FINE', 500),
+        }),
+      );
+      expect(
+        CrumbsStore.recentLogs(minLevel: 'WARNING')
+            .map((LogRecordEntry r) => r.message),
+        equals(<String>['emergency', 'alert', 'critical', 'error', 'warning']),
+      );
+    });
+
+    test('records the channel a call names', () {
+      MagicLogWatcher().install();
+
+      Log.channel('slack').error('down');
+
+      final LogRecordEntry record = CrumbsStore.recentLogs().single;
+      expect(record.loggerName, 'slack');
+      expect(record.level, 'SEVERE');
+    });
+
+    test('the wrapped manager still receives every call', () {
+      MagicLogWatcher().install();
+
+      Log.warning('disk', <String, dynamic>{'free': 1});
+
+      expect(inner.entries, hasLength(1));
+      expect(inner.entries.single.level, 'warning');
+      expect(inner.entries.single.message, 'disk');
+      expect(CrumbsStore.recentLogs().single.message, 'disk');
+    });
+
+    test('a context lands in the error field', () {
+      MagicLogWatcher().install();
+
+      Log.error('failed', <String, dynamic>{'id': 7});
+
+      expect(CrumbsStore.recentLogs().single.error, '{id: 7}');
+    });
+
+    test('a structured context is masked by key, and the wrapped driver gets '
+        'it unmasked', () {
+      MagicLogWatcher().install();
+      final Map<String, dynamic> context = <String, dynamic>{
+        'id': 7,
+        'token': 't0k',
+        'Password': 'hunter2',
+        'authorization': 'Bearer abc',
+        'nested': <String, dynamic>{'access_token': 'n3st'},
+        'items': <Object?>[
+          <String, dynamic>{'secret': 's3cr', 'name': 'kept'},
+        ],
+      };
+
+      Log.debug('auth', context);
+
+      final String error = CrumbsStore.recentLogs().single.error!;
+      for (final String secret in <String>[
+        't0k',
+        'hunter2',
+        'Bearer abc',
+        'n3st',
+        's3cr',
+      ]) {
+        expect(error, isNot(contains(secret)));
+      }
+      expect(error, contains('id: 7'));
+      expect(error, contains('kept'));
+      expect(error, contains(CrumbsRedaction.mask));
+      expect(inner.entries.single.context, same(context));
+      expect(context['token'], 't0k');
+    });
+
+    test('a List context of maps is masked by key', () {
+      MagicLogWatcher().install();
+
+      Log.info('batch', <Object?>[
+        <String, dynamic>{'token': 't0k', 'id': 1},
+      ]);
+
+      final String error = CrumbsStore.recentLogs().single.error!;
+      expect(error, isNot(contains('t0k')));
+      expect(error, contains('id: 1'));
+    });
+
+    test('a scalar context is stored as given', () {
+      MagicLogWatcher().install();
+
+      Log.info('text', 'token=plain');
+      Log.info('number', 42);
+
+      expect(
+        CrumbsStore.recentLogs().map((LogRecordEntry r) => r.error),
+        equals(<String>['token=plain', '42']),
+      );
+    });
+
+    test('install() after Log.unfake() bridges again', () {
+      MagicLogWatcher().install();
+      Log.fake();
+      Log.unfake();
+      Magic.singleton('log', FakeLogManager.new);
+
+      MagicLogWatcher().install();
+      Log.info('x');
+
+      expect(CrumbsStore.recentLogs().single.message, 'x');
+    });
+
+    test('uninstall() leaves a manager installed over the wrapper alone', () {
+      MagicLogWatcher().install();
+      final FakeLogManager newFake = Log.fake();
+
+      MagicLogWatcher().uninstall();
+
+      expect(Magic.make<LogManager>('log'), same(newFake));
+    });
+
+    test('a second install does not record a call twice', () {
+      MagicLogWatcher().install();
+      MagicLogWatcher().install();
+
+      Log.info('once');
+
+      expect(CrumbsStore.recentLogs(), hasLength(1));
+      expect(inner.entries, hasLength(1));
+    });
+
+    test('uninstall() restores the original manager and stops recording', () {
+      final MagicLogWatcher watcher = MagicLogWatcher()..install();
+
+      watcher.uninstall();
+      Log.info('after');
+
+      expect(Magic.make<LogManager>('log'), same(inner));
+      expect(CrumbsStore.recentLogs(), isEmpty);
+      inner.assertLogged('info', 'after');
+    });
+
+    test('MagicCrumbsIntegration.install() registers the watcher', () {
+      MagicCrumbsIntegration.install();
+
+      Log.info('integrated');
+
+      expect(CrumbsStore.recentLogs().single.message, 'integrated');
+    });
+
+    test('MagicCrumbsIntegration.resetForTesting() unwraps the manager', () {
+      MagicCrumbsIntegration.install();
+
+      MagicCrumbsIntegration.resetForTesting();
+
+      expect(Magic.make<LogManager>('log'), same(inner));
+    });
+
+    test('installs nothing and does not throw when log is unbound', () {
+      Log.unfake();
+      final MagicLogWatcher watcher = MagicLogWatcher();
+
+      expect(watcher.install, returnsNormally);
+      expect(Magic.bound('log'), isFalse);
+      expect(watcher.uninstall, returnsNormally);
+    });
+  });
+
   group('HTTP credential redaction', () {
     late HttpServer server;
     HttpOverrides? bindingOverrides;

@@ -26,7 +26,7 @@
 /// ```
 ///
 /// See `src/crumbs_integration.dart` for the concrete
-/// MagicCrumbsIntegration class, its 5 Magic watchers, and
+/// MagicCrumbsIntegration class, its 6 Magic watchers, and
 /// MagicHttpFacadeAdapter.
 library;
 

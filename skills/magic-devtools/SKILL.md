@@ -7,7 +7,7 @@ when_to_use: "Use when code imports package:magic_devtools or touches MagicDevto
 
 # magic_devtools
 
-`magic_devtools` is the seam between a Magic app and two dev tools: tapir, the E2E driver an agent uses to snapshot and drive the app, and crumbs, the runtime inspector that records HTTP, logs, exceptions and app activity. It adds Magic-aware enrichers to tapir's snapshots, feeds Magic's HTTP, model, cache, event, gate and query activity into crumbs, assembles the data path behind tapir's perf sessions, and hosts a dev-only component catalog at `/preview`. `magic` itself depends on neither tool; this package is where they meet.
+`magic_devtools` is the seam between a Magic app and two dev tools: tapir, the E2E driver an agent uses to snapshot and drive the app, and crumbs, the runtime inspector that records HTTP, logs, exceptions and app activity. It adds Magic-aware enrichers to tapir's snapshots, feeds Magic's HTTP, model, cache, event, gate, query and log activity into crumbs, assembles the data path behind tapir's perf sessions, and hosts a dev-only component catalog at `/preview`. `magic` itself depends on neither tool; this package is where they meet.
 
 This skill covers wiring and testing `magic_devtools` only. Driving the app (`tapir:snap`, `tapir:tap`, perf sessions) is the `tapir` skill, reading records is the `crumbs` skill, Magic's container, router, forms and providers are the `magic-framework` skill, and styling a preview with Wind classes is the `wind-ui` skill.
 
@@ -23,7 +23,7 @@ Requires Dart >=3.13, Flutter >=3.47 and `magic` ^1.0.0. All three packages go u
 |---|---|
 | `package:magic_devtools/magic_devtools.dart` | `MagicDevtools`, `MagicPerfIntegration`, `PerfInsightRules`, `PerfRuleInputs` |
 | `package:magic_devtools/tapir.dart` | `MagicTapirIntegration` and its 14 enricher functions |
-| `package:magic_devtools/crumbs.dart` | `MagicCrumbsIntegration`, `MagicHttpFacadeAdapter` and the five watchers |
+| `package:magic_devtools/crumbs.dart` | `MagicCrumbsIntegration`, `MagicHttpFacadeAdapter` and the six watchers |
 | `package:magic_devtools/preview.dart` | `MagicPreview`, `PreviewEntry`, `MagicPreviewCatalog`, `kPreviewEnabled` |
 
 ## Rules for every install call
@@ -55,7 +55,8 @@ Requires Dart >=3.13, Flutter >=3.47 and `magic` ^1.0.0. All three packages go u
 3. Keep secrets out of model attributes in a debug session: a `ModelRecord` copies every attribute unmasked.
 4. Read `EventRecord.payload` as always empty: `MagicEventWatcher` records which event fired and when, not its fields.
 5. `Http.fake()` installs no interceptors, so faked requests never reach crumbs. Assert on the fake.
-6. The watchers' `uninstall()` removes nothing, because magic's `EventDispatcher` has no per-listener removal; tests clear the dispatcher themselves.
+6. The event watchers' `uninstall()` removes nothing, because magic's `EventDispatcher` has no per-listener removal; tests clear the dispatcher themselves.
+7. `MagicLogWatcher` wraps the container's `log` manager, so `Log.*` calls land in `crumbs:tail` and `tapir:console`; a call made during `Magic.init()`, before the post half, is not recorded. `Log.fake()` still works: called before the install it is wrapped and keeps its entries, called after it replaces the wrapper. `Log.unfake()` drops the wrapper too, so call `MagicLogWatcher().install()` after it to bridge again. A `Map` or `List` context is masked by key before it is stored; the message text is not.
 
 ## MagicPerfIntegration rules
 
@@ -214,7 +215,7 @@ void main() {
 |---|---|
 | `MagicDevtools.resetForTesting()` | The `ExceptionWatcher` and `DumpWatcher` `installPre()` registered, restoring `FlutterError.onError`, the platform error callback and `debugPrint` |
 | `MagicTapirIntegration.resetForTesting()` | The 14 enrichers, the navigate adapter, the Echo subscription, the install guard |
-| `MagicCrumbsIntegration.resetForTesting()` | The install guard and tapir's three crumbs readers; not the adapter or the watchers' listeners, so also call `EventDispatcher.instance.clear()` |
+| `MagicCrumbsIntegration.resetForTesting()` | The install guard, the `log` manager wrapper and tapir's three crumbs readers; not the adapter or the watchers' listeners, so also call `EventDispatcher.instance.clear()` |
 | `MagicPerfIntegration.resetForTesting()` | The guard, the session counters, the sink, the insight contributor, the frame watcher, every tapir perf pointer; not the navigator observer, so also call `MagicRouter.reset()` |
 | `MagicPreview.resetForTesting()` | The registered entries; `MagicRouter.reset()` drops the routes |
 

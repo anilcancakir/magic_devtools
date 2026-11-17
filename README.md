@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>Let an agent see your Magic app the way Magic sees it.</strong><br/>
-  Wire a Magic app into <a href="https://pub.dev/packages/tapir">tapir</a> (the E2E driver) and <a href="https://pub.dev/packages/crumbs">crumbs</a> (the runtime inspector), so snapshots carry forms, routes, controllers, gates and auth, and crumbs records Magic's HTTP, model, cache, event, gate and query activity; debug and profile builds carry the tools, release builds drop them.
+  Wire a Magic app into <a href="https://pub.dev/packages/tapir">tapir</a> (the E2E driver) and <a href="https://pub.dev/packages/crumbs">crumbs</a> (the runtime inspector), so snapshots carry forms, routes, controllers, gates and auth, and crumbs records Magic's HTTP, model, cache, event, gate, query and log activity; debug and profile builds carry the tools, release builds drop them.
 </p>
 
 <p align="center">
@@ -127,7 +127,7 @@ Failure modes:
 
 ## Crumbs integration
 
-`MagicCrumbsIntegration.install()` registers one HTTP adapter and five watchers with crumbs, masks the auth header Magic sends, and points tapir's network-idle, console and exceptions readers at crumbs. To wire crumbs alone:
+`MagicCrumbsIntegration.install()` registers one HTTP adapter and six watchers with crumbs, masks the auth header Magic sends, and points tapir's network-idle, console and exceptions readers at crumbs. To wire crumbs alone:
 
 ```dart
 import 'package:crumbs/crumbs.dart';
@@ -161,6 +161,7 @@ Future<void> main() async {
 | `MagicEventWatcher` | `AuthLogin`, `AuthLogout`, `AuthFailed`, `AuthRestored`, `DatabaseConnected`, `GateAbilityDefined`, `GateBeforeRegistered` | `crumbs:events` |
 | `MagicGateWatcher` | `GateAccessChecked` | `crumbs:gates` |
 | `MagicQueryWatcher` | `QueryExecuted` | `crumbs:queries` |
+| `MagicLogWatcher` | Every `Log.*` call, through a wrapper around the `log` manager | `crumbs:tail`, `tapir:console` |
 
 Request and response bodies are masked by key (`password`, `token` and the rest of crumbs' lists) before they are stringified and cut at 8192 characters, and the header `auth.token.header` names (default `Authorization`) is hidden; a masked value reads `********`. Requests and answers pair by the id Magic's driver stamps on each request, so two requests that finish out of order keep their own URL and duration.
 
@@ -168,6 +169,8 @@ Failure modes:
 
 - Called before `Magic.init()`, the adapter finds no `network` binding and attaches nothing, and the install guard stops a retry.
 - `Http.fake()` installs no interceptors, so a faked request never reaches crumbs; assert on the fake.
+- A `Log.*` call made during `Magic.init()`, before `install()`, is not recorded; every call after it is.
+- A `Map` or `List` log context is masked by key before crumbs stores it; the message text is not, since only a registered `CrumbsRedaction.redactor` touches free text.
 - A `ModelRecord` copies every attribute unmasked, and `EventRecord.payload` is always empty: the record says which event fired, not its fields.
 - `--dart-define=CRUMBS_DISABLE=true` turns `registerWatcher` and `registerHttpAdapter` into no-ops, so none of the Magic units attaches.
 

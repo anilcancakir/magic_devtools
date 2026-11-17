@@ -1,6 +1,6 @@
 # Crumbs Integration
 
-`MagicCrumbsIntegration` feeds Magic's HTTP traffic, model, cache, event, gate and query activity into crumbs' buffers, masks the auth header Magic sends, and points tapir's network-idle, console and exceptions readers at crumbs.
+`MagicCrumbsIntegration` feeds Magic's HTTP traffic, model, cache, event, gate, query and log activity into crumbs' buffers, masks the auth header Magic sends, and points tapir's network-idle, console and exceptions readers at crumbs.
 
 - [Basic Usage](#basic-usage)
 - [Quick Reference](#quick-reference)
@@ -52,6 +52,7 @@ Future<void> main() async {
 | `MagicEventWatcher` | `magic_event` | `AuthLogin`, `AuthLogout`, `AuthFailed`, `AuthRestored`, `DatabaseConnected`, `GateAbilityDefined`, `GateBeforeRegistered` | `EventRecord` | `crumbs:events` |
 | `MagicGateWatcher` | `magic_gate` | `GateAccessChecked` | `GateRecord` | `crumbs:gates` |
 | `MagicQueryWatcher` | `magic_query` | `QueryExecuted` | `QueryRecord` | `crumbs:queries` |
+| `MagicLogWatcher` | `magic_log` | Every `Log.*` call, through a wrapper around the `log` manager | `LogRecordEntry` | `crumbs:tail`, `tapir:console` |
 
 `install()` is idempotent: a second call registers nothing twice. It does re-add the auth header to the masked list on every call (see [Credential Masking](#credential-masking)).
 
@@ -98,10 +99,27 @@ Add your own names with `CrumbsRedaction.hideRequestHeaders`, `hideRequestParame
 | `MagicEventWatcher` | `eventType` (the class name) and an empty `payload` |
 | `MagicGateWatcher` | `ability`, `result`, `arguments` (always one element; a `Model` is stored as `toMap()`), `userId` as a string or null |
 | `MagicQueryWatcher` | `sql`, `bindings`, `timeMs`, `connectionName` |
+| `MagicLogWatcher` | `level` and `levelValue` (below), `message`, `loggerName` (the channel the call named, else `logging.default`, else `console`), the context as a string in `error`, masked by key |
 
-Every record except the gate record also carries `interactionId` and `linkedBy`. Model lifecycle and `QueryExecuted` stay out of `MagicEventWatcher`, and `GateAccessDenied` is not subscribed, so each action lands on one channel once.
+Every record except the gate and log records also carries `interactionId` and `linkedBy`. Model lifecycle and `QueryExecuted` stay out of `MagicEventWatcher`, and `GateAccessDenied` is not subscribed, so each action lands on one channel once.
 
-Each watcher guards its own `install()`, because magic's `EventDispatcher.register` is additive. `uninstall()` removes nothing: the dispatcher has no per-listener removal.
+Each event watcher guards its own `install()`, because magic's `EventDispatcher.register` is additive. Their `uninstall()` removes nothing: the dispatcher has no per-listener removal.
+
+### The Log Watcher
+
+crumbs' own `LogWatcher` reads `package:logging`, which magic does not write to. `MagicLogWatcher` instead replaces the container's `log` instance with a manager that wraps the one it found (the real `LogManager`, or the `FakeLogManager` from `Log.fake()`): every call reaches the wrapped driver first and is then recorded. A second `install()` sees the wrapper and does nothing; `uninstall()` puts the wrapped manager back, unless something such as `Log.fake()` replaced the wrapper since.
+
+| Magic level | crumbs level |
+|:------------|:-------------|
+| `emergency`, `alert`, `critical` | `SHOUT` (1200) |
+| `error` | `SEVERE` (1000) |
+| `warning` | `WARNING` (900) |
+| `notice`, `info` | `INFO` (800) |
+| `debug`, any other name | `FINE` (500) |
+
+A call the console channel's `level` hides is still recorded. `install()` belongs to the post half, so a `Log.*` call made during `Magic.init()` is not recorded; every call after it is.
+
+A `Map` or `List` context is masked by key before it is stored, against crumbs' hidden header, request and response names at any depth, while the wrapped driver still receives it whole; the message text is not masked, since only a registered `CrumbsRedaction.redactor` touches free text. `Log.unfake()` removes the container's `log` instance, which drops the wrapper with the fake, and the install guard of `MagicCrumbsIntegration` stops a rerun: call `MagicLogWatcher().install()` after it to bridge again.
 
 <a name="the-tapir-bridge"></a>
 ## The Tapir Bridge
@@ -127,8 +145,9 @@ The integration has no build-mode check of its own. Under the `!kReleaseMode` gu
 | Mistake | Fix |
 |:--------|:----|
 | Calling `MagicCrumbsIntegration.install()` before `Magic.init()`. | The adapter finds no `network` binding and attaches nothing, and the install guard stops a later call from retrying; call it after `Magic.init()`. |
-| Expecting model attributes to be masked. | Only HTTP headers and bodies are masked by key; a `ModelRecord` copies every attribute as given, so keep secrets out of model attributes in a debug session. |
+| Expecting model attributes or log messages to be masked. | Only HTTP headers and bodies and a structured log context are masked by key; a `ModelRecord` copies every attribute as given and a log message is stored as written, so keep secrets out of both in a debug session. |
 | Expecting HTTP records while the test uses `Http.fake()`. | The fake driver ignores interceptors, so nothing reaches crumbs; assert on the fake instead. |
+| Looking for the boot logs in `crumbs:tail`. | `MagicLogWatcher` installs after `Magic.init()`, so only later `Log.*` calls are recorded. |
 | Reading `EventRecord.payload` for event details. | It is always empty; the record says which event fired and when, not its fields. |
 | Registering `ExceptionWatcher` by hand and also calling `MagicDevtools.installPre()`. | Each registration chains onto `FlutterError.onError`, so every exception is recorded twice; use one style. |
 

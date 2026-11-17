@@ -32,7 +32,7 @@ Local sibling development goes through the gitignored `pubspec_overrides.yaml` w
 lib/
 ├── magic_devtools.dart   # Umbrella barrel: MagicDevtools.installPre / installPost
 ├── tapir.dart            # MagicTapirIntegration: 14 snapshot enrichers, MagicRouter navigate adapter
-├── crumbs.dart           # MagicCrumbsIntegration: 5 Magic watchers, MagicHttpFacadeAdapter
+├── crumbs.dart           # MagicCrumbsIntegration: 6 Magic watchers, MagicHttpFacadeAdapter
 ├── preview.dart          # Component preview catalog barrel
 └── src/                  # Private implementation; perf lives here too (MagicPerfIntegration)
 doc/                      # User docs, published by the docs site: getting-started/, basics/, guides/

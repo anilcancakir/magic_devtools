@@ -86,7 +86,7 @@ Import a narrow barrel when the app uses one tool, or wants a different crumbs w
 |:-------|:--------|
 | `package:magic_devtools/magic_devtools.dart` | `MagicDevtools`, `MagicPerfIntegration`, `PerfInsightRules`, `PerfRuleInputs` |
 | `package:magic_devtools/tapir.dart` | `MagicTapirIntegration` and its 14 enricher functions |
-| `package:magic_devtools/crumbs.dart` | `MagicCrumbsIntegration`, `MagicHttpFacadeAdapter` and the five watchers |
+| `package:magic_devtools/crumbs.dart` | `MagicCrumbsIntegration`, `MagicHttpFacadeAdapter` and the six watchers |
 | `package:magic_devtools/preview.dart` | `MagicPreview`, `PreviewEntry`, `MagicPreviewCatalog`, `kPreviewEnabled` |
 
 ```dart
@@ -143,7 +143,7 @@ A profile build keeps the tools, which is what a performance measurement needs.
 ## Related Documentation
 
 - [Tapir Integration](../basics/tapir-integration.md): the 14 snapshot enrichers and the navigate adapter.
-- [Crumbs Integration](../basics/crumbs-integration.md): the HTTP adapter, the five watchers and credential masking.
+- [Crumbs Integration](../basics/crumbs-integration.md): the HTTP adapter, the six watchers and credential masking.
 - [Performance](../basics/performance.md): the perf data path and the insight rules.
 - [Preview Catalog](../basics/preview-catalog.md): the dev-only `/preview` pages.
 - [Testing](../guides/testing.md): resetting the integrations between tests.

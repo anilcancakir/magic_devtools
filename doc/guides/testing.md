@@ -52,7 +52,7 @@ Every `resetForTesting()` and `isInstalled` here is `@visibleForTesting`: call t
 |:-----|:-------|:-------|
 | `MagicDevtools.resetForTesting()` | Uninstalls the `ExceptionWatcher` and `DumpWatcher` that `installPre()` registered, which restores `FlutterError.onError`, the platform error callback and `debugPrint`; the next `installPre()` registers a new pair | The plugins and the perf integration |
 | `MagicTapirIntegration.resetForTesting()` | Removes the 14 enrichers from `TapirPlugin.enrichers`, clears the navigate adapter, cancels the Echo subscription, drops the install guard | Enrichers the app added itself |
-| `MagicCrumbsIntegration.resetForTesting()` | Drops the install guard; resets `pendingHttpCountReader`, `recentLogsReader` and `recentExceptionsReader` to zero and empty lists | The adapter and the five watchers registered with `CrumbsPlugin`, and their `EventDispatcher` listeners |
+| `MagicCrumbsIntegration.resetForTesting()` | Drops the install guard; puts back the `log` manager `MagicLogWatcher` wrapped; resets `pendingHttpCountReader`, `recentLogsReader` and `recentExceptionsReader` to zero and empty lists | The adapter and the six watchers registered with `CrumbsPlugin`, and their `EventDispatcher` listeners |
 | `MagicPerfIntegration.resetForTesting()` | Drops the install guard, clears the session counters and route transitions, removes `MagicPerfHooks.sink` and the insight contributor, uninstalls the frame watcher, turns wind's counting off, restores the interaction sources and puts every tapir perf pointer back to the default tapir declared | The navigator observer, which `MagicRouter.reset()` drops with the router |
 | `MagicPreview.resetForTesting()` | The registered entries | Routes already added; `MagicRouter.reset()` clears those |
 
@@ -84,7 +84,7 @@ tapir's `PerfInteraction` has a private constructor, so a host test cannot open 
 | Mistake | Fix |
 |:--------|:----|
 | Calling `MagicDevtools.installPre()` in a `testWidgets` case and restoring `debugPrint` in `tearDown`. | flutter_test checks its debug variables right after the test body, before `tearDown`; call `MagicDevtools.resetForTesting()` at the end of the body. |
-| Resetting `MagicCrumbsIntegration` and expecting its watchers gone. | The reset drops the guard only; clear `EventDispatcher.instance` too, or a reinstall records each event twice. |
+| Resetting `MagicCrumbsIntegration` and expecting its watchers gone. | The reset drops the guard and puts back the `log` manager, but not the event listeners; clear `EventDispatcher.instance` too, or a reinstall records each event twice. |
 | Calling `MagicPerfIntegration.install()` twice across tests without `MagicRouter.reset()`. | The reset clears the observer flag, so the next install adds a second observer to the same router; reset the router as well. |
 | Asserting crumbs HTTP records while using `Http.fake()`. | The fake driver ignores interceptors; assert on the fake. |
 | Expecting `MagicCrumbsIntegration.resetForTesting()` to restore the masked header list. | It does not; `CrumbsStore.resetForTesting()` restores crumbs' defaults, and the next `install()` adds the auth header again. |

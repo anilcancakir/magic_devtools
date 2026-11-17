@@ -98,7 +98,7 @@ class MagicDevtools {
 
   /// Post-`Magic.init()` half: wire Magic's runtime into both tools.
   ///
-  /// Installs [MagicCrumbsIntegration] (5 Magic watchers +
+  /// Installs [MagicCrumbsIntegration] (6 Magic watchers +
   /// `MagicHttpFacadeAdapter` + the tapir-to-crumbs bridge readers) and
   /// [MagicTapirIntegration] (14 Magic-aware snapshot enrichers + the
   /// [MagicRouter] navigate adapter). Both resolve their dependencies

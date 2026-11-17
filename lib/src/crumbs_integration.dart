@@ -11,7 +11,7 @@ import 'package:magic/magic.dart';
 
 import 'perf_integration.dart';
 
-/// Glues magic's Http / Model / Cache facades into the crumbs
+/// Glues magic's Http / Model / Cache / Log facades into the crumbs
 /// store.
 ///
 /// Host integration (debug-only):
@@ -22,7 +22,7 @@ import 'perf_integration.dart';
 /// }
 /// ```
 ///
-/// Registers six units with [CrumbsPlugin]:
+/// Registers seven units with [CrumbsPlugin]:
 /// 1. [MagicHttpFacadeAdapter] ; wraps Magic's `network` driver with a
 ///    [MagicNetworkInterceptor] that feeds [CrumbsStore.recordHttp]
 ///    (oracle's reuse-pattern decision kept inside magic).
@@ -40,10 +40,12 @@ import 'perf_integration.dart';
 ///    stringified).
 /// 6. [MagicQueryWatcher] ; subscribes to `QueryExecuted` and feeds
 ///    [CrumbsStore.recordQuery].
+/// 7. [MagicLogWatcher] ; wraps the container's `'log'` manager so every
+///    `Log.*` call after install also feeds [CrumbsStore.recordLog].
 ///
-/// The adapter and the five watchers are public and exported from
+/// The adapter and the six watchers are public and exported from
 /// `package:magic_devtools/crumbs.dart`, so a host can register a subset
-/// itself; [MagicCrumbsIntegration.install] registers all six at once.
+/// itself; [MagicCrumbsIntegration.install] registers all seven at once.
 class MagicCrumbsIntegration {
   MagicCrumbsIntegration._();
 
@@ -67,6 +69,7 @@ class MagicCrumbsIntegration {
     CrumbsPlugin.registerWatcher(MagicEventWatcher());
     CrumbsPlugin.registerWatcher(MagicGateWatcher());
     CrumbsPlugin.registerWatcher(MagicQueryWatcher());
+    CrumbsPlugin.registerWatcher(MagicLogWatcher());
 
     // Bridge tapir's `wait_for_network_idle` poll loop to the crumbs
     // in-flight count. Tapir keeps a function-pointer indirection so it
@@ -107,7 +110,8 @@ class MagicCrumbsIntegration {
   @visibleForTesting
   static bool get isInstalled => _installed;
 
-  /// Test-only reset. Drops the idempotency guard AND restores the three
+  /// Test-only reset. Drops the idempotency guard, puts back the log
+  /// manager [MagicLogWatcher] wrapped, AND restores the three
   /// cross-package function pointers (`pendingHttpCountReader`,
   /// `recentLogsReader`, `recentExceptionsReader`) to their tapir-side
   /// missing-crumbs defaults so downstream tests that assert
@@ -122,6 +126,7 @@ class MagicCrumbsIntegration {
   @visibleForTesting
   static void resetForTesting() {
     _installed = false;
+    MagicLogWatcher().uninstall();
     pendingHttpCountReader = () => 0;
     recentLogsReader = (ConsoleRequest request) => const [];
     recentExceptionsReader = (ExceptionsRequest request) => const [];
@@ -730,4 +735,115 @@ class _QueryExecutedListener extends MagicListener<QueryExecuted> {
       ),
     );
   }
+}
+
+// ---------------------------------------------------------------------------
+// Log watcher ; bridges magic's Log facade into the crumbs log buffer.
+// ---------------------------------------------------------------------------
+
+/// [CrumbsWatcher] for magic's `Log` facade, feeding
+/// [CrumbsStore.recordLog].
+///
+/// crumbs' own `LogWatcher` listens to `package:logging`, which magic never
+/// writes to, so without this bridge `crumbs:tail` and `tapir:console` stay
+/// empty for a Magic app. [install] replaces the container's `'log'`
+/// instance with a manager wrapping whatever was there (the real
+/// [LogManager] or a [FakeLogManager]); every driver it hands out forwards
+/// the call to the wrapped driver first, then records it.
+///
+/// A call the console driver's `minLevel` suppresses is still recorded: the
+/// buffer is a diagnostic view, not a copy of the console. Logs written
+/// before [install] ran (during `Magic.init()`) are not recorded. A Map or
+/// List context is masked by key before it is stored (the wrapped driver
+/// still gets it whole); the message text is not, since only a registered
+/// [CrumbsRedaction.redactor] touches free text. `Log.unfake()` drops the
+/// wrapper with the fake, so call [install] again after it.
+class MagicLogWatcher implements CrumbsWatcher {
+  @override
+  String get name => 'magic_log';
+
+  /// Idempotent across instances: the guard is the container's own `'log'`
+  /// instance, which `Magic.flush()` drops together with the wrapper.
+  @override
+  void install() {
+    if (!Magic.bound('log')) return;
+    final LogManager current = Magic.make<LogManager>('log');
+    if (current is _ObservingLogManager) return;
+    Magic.app.setInstance('log', _ObservingLogManager(current));
+  }
+
+  /// Puts the wrapped manager back. A manager installed over the wrapper
+  /// since (a later `Log.fake()`) is left alone.
+  @override
+  void uninstall() {
+    if (!Magic.bound('log')) return;
+    final LogManager current = Magic.make<LogManager>('log');
+    if (current is! _ObservingLogManager) return;
+    Magic.app.setInstance('log', current.inner);
+  }
+}
+
+/// [LogManager] that hands out a [_RecordingLoggerDriver] around each
+/// driver of [inner]. Wraps at `driver()` level because `StackLoggerDriver`
+/// resolves its children internally, so one `Log.*` call is one record.
+class _ObservingLogManager extends LogManager {
+  _ObservingLogManager(this.inner);
+
+  /// The manager the container held before [MagicLogWatcher.install].
+  final LogManager inner;
+
+  @override
+  LoggerDriver driver([String? channel]) => _RecordingLoggerDriver(
+    inner.driver(channel),
+    channel ?? Config.get<String>('logging.default', 'console') ?? 'console',
+  );
+}
+
+/// Forwards every call to [_inner], then records it in crumbs. Overrides
+/// only [log] because every convenience method of [LoggerDriver] routes
+/// through it.
+class _RecordingLoggerDriver extends LoggerDriver {
+  _RecordingLoggerDriver(this._inner, this._channel);
+
+  final LoggerDriver _inner;
+
+  /// Channel name stored as the record's `loggerName`.
+  final String _channel;
+
+  @override
+  void log(String level, String message, [dynamic context]) {
+    _inner.log(level, message, context);
+    final (String name, int value) crumbsLevel = _crumbsLevel(level);
+    CrumbsStore.recordLog(
+      LogRecordEntry(
+        level: crumbsLevel.$1,
+        levelValue: crumbsLevel.$2,
+        message: message,
+        loggerName: _channel,
+        time: DateTime.now(),
+        error: _redactContext(context)?.toString(),
+      ),
+    );
+  }
+
+  /// A copy of a Map or List [context] with every key crumbs hides in a
+  /// header, request or response masked, since crumbs' log redaction only
+  /// runs the optional free-text redactor; a scalar comes back as is.
+  static Object? _redactContext(Object? context) =>
+      CrumbsRedaction.redactParameters(context, <String>{
+        ...CrumbsRedaction.hiddenRequestHeaders,
+        ...CrumbsRedaction.hiddenRequestParameters,
+        ...CrumbsRedaction.hiddenResponseParameters,
+      });
+
+  /// Maps an RFC 5424 level onto the `package:logging` name and value
+  /// crumbs' `recentLogs(minLevel:)` filter understands; a name outside
+  /// that set would be filtered out of every level query.
+  static (String, int) _crumbsLevel(String level) => switch (level) {
+    'emergency' || 'alert' || 'critical' => ('SHOUT', 1200),
+    'error' => ('SEVERE', 1000),
+    'warning' => ('WARNING', 900),
+    'notice' || 'info' => ('INFO', 800),
+    _ => ('FINE', 500),
+  };
 }

@@ -1,7 +1,7 @@
 ---
 name: magic-devtools
 description: "Wire tapir and crumbs into a Magic app with magic_devtools, and keep the wiring out of release builds."
-version: 1.0.1
+version: 1.1.0
 when_to_use: "Use when code imports package:magic_devtools or touches MagicDevtools, the tapir or crumbs integrations, MagicPerfIntegration or the /preview catalog."
 ---
 

@@ -2,7 +2,7 @@
 
 Guidance for Claude Code working inside the `magic_devtools` repo. Path-scoped rules live in `.claude/rules/`.
 
-**Version:** 1.0.1 · **Dart:** >=3.13.0 · **Flutter:** >=3.47.0 · **Requires:** `magic`, `magic_socket`, `tapir`, `crumbs`, `wind_kit`, `material_ui`
+**Version:** 1.1.0 · **Dart:** >=3.13.0 · **Flutter:** >=3.47.0 · **Requires:** `magic`, `magic_socket`, `tapir`, `crumbs`, `wind_kit`, `material_ui`
 
 ## What this package is for, and why it is a package at all
 

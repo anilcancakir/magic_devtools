@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-11-18
+
 ### Added
 
 - **`MagicLogWatcher` records magic's `Log` calls in crumbs.** crumbs' own log watcher reads `package:logging`, which magic never writes to, so `crumbs:tail`, `crumbs_tail` and `tapir:console` stayed empty for a Magic app; the watcher wraps the container's `log` manager, forwards each call to the wrapped driver, then records it with the level mapped onto crumbs' names, the channel as the logger name and the context in `error`, a `Map` or `List` context masked by key with crumbs' hidden names first. `MagicCrumbsIntegration.install()` registers it and `resetForTesting()` unwraps it; a call made during `Magic.init()`, before the post half, is not recorded. Fixes #36. (`lib/src/crumbs_integration.dart`)
